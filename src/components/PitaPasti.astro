@@ -1,0 +1,114 @@
+---
+/**
+ * PitaPasti — rentang ketidakpastian sebagai gambar.
+ *
+ * MENGAPA ADA
+ * -----------
+ * Sebelumnya ketidakpastian ditampilkan sebagai batang setinggi 12 piksel
+ * berisi satu angka persen, disertai kalimat dua baris. Yang paling penting
+ * justru hilang: batas bawah dan batas atasnya.
+ *
+ * Ketentuan proyek melarang prediksi disajikan sebagai satu angka pasti.
+ * Karena itu komponen ini SELALU menampilkan ketiga angka — terendah, tengah,
+ * tertinggi — sebagai teks. Rel berwarnanya hanya membantu melihat di mana
+ * angka tengah berada di antara kedua batas.
+ *
+ * Rel-nya sendiri ditandai `aria-hidden`: ia tidak membawa informasi yang tidak
+ * sudah dibawa ketiga angka di bawahnya.
+ *
+ * BENTUK
+ * ------
+ * Tiga kotak berlatar di bawah rel dihapus. Ketiga angka itu memang berbeda
+ * perannya — tengah adalah perkiraan terbaik, kedua tepinya batas — tetapi
+ * perbedaan itu cukup ditandai dengan ketebalan huruf dan warna, tidak perlu
+ * tiga persegi.
+ */
+import Lencana from './Lencana.astro';
+import { sebutanRentang, lebarRentang } from '../lib/rentang';
+
+export interface Props {
+  /** Angka batas bawah, sudah diformat. */
+  teksBawah: string;
+  /** Angka tengah, sudah diformat. */
+  teksTengah: string;
+  /** Angka batas atas, sudah diformat. */
+  teksAtas: string;
+  /** Angka mentah, dipakai hanya untuk menghitung posisi penanda. */
+  nilaiBawah: number;
+  nilaiTengah: number;
+  nilaiAtas: number;
+  /** Lebar rentang terhadap harga, dalam persen. Bila kosong, dihitung sendiri. */
+  persen?: number;
+  /** Nama satuan, mis. "kg". */
+  satuan?: string;
+}
+
+const {
+  teksBawah,
+  teksTengah,
+  teksAtas,
+  nilaiBawah,
+  nilaiTengah,
+  nilaiAtas,
+  persen,
+  satuan = 'kg',
+} = Astro.props;
+
+// Lebar rentang terhadap angka tengah. Dipakai hanya untuk memilih kata pada
+// lencana — bukan untuk menghitung apa pun yang ditampilkan sebagai angka.
+const lebarPersen =
+  typeof persen === 'number' && Number.isFinite(persen)
+    ? persen
+    : lebarRentang(nilaiBawah, nilaiTengah, nilaiAtas);
+
+// Ambang kata "lebar/sedang/sempit" ada di `lib/rentang.ts` supaya sama dengan
+// yang dipakai jalur putusan di halaman `/prediksi`.
+const putusan = sebutanRentang(lebarPersen);
+
+// Posisi penanda angka tengah pada rel, dalam persen.
+const rentang = nilaiAtas - nilaiBawah;
+const posisiTengah =
+  rentang > 0 ? Math.max(0, Math.min(100, ((nilaiTengah - nilaiBawah) / rentang) * 100)) : 50;
+---
+
+<div class="space-y-3">
+  <div class="flex flex-wrap items-center gap-3">
+    <Lencana nada={putusan.nada} teks={putusan.teks} ikon="banding" />
+    {
+      Number.isFinite(lebarPersen) && (
+        <span class="text-tinta-kedua">
+          Lebar rentang sekitar <strong>{lebarPersen.toFixed(0)}%</strong> dari harga
+        </span>
+      )
+    }
+  </div>
+
+  <!-- Rel. Hanya gambaran posisi; angkanya ada di baris berikutnya. -->
+  <div aria-hidden="true" class="relative h-5 rounded-full bg-kertas-garis">
+    <div
+      class="absolute inset-y-0 w-1 rounded-full bg-sipanen-700"
+      style={`left: calc(${posisiTengah}% - 0.125rem)`}
+    >
+    </div>
+  </div>
+
+  <dl class="grid grid-cols-3 gap-2 text-center">
+    <div>
+      <dt class="text-sm text-tinta-redup">Terendah</dt>
+      <dd class="font-bold tabular-nums">{teksBawah}</dd>
+    </div>
+    <div>
+      <dt class="text-sm text-tinta-redup">Tengah</dt>
+      <dd class="font-extrabold tabular-nums text-sipanen-900">{teksTengah}</dd>
+    </div>
+    <div>
+      <dt class="text-sm text-tinta-redup">Tertinggi</dt>
+      <dd class="font-bold tabular-nums">{teksAtas}</dd>
+    </div>
+  </dl>
+
+  <p class="text-sm text-tinta-redup">
+    Semua harga dihitung per {satuan}. Harga saat panen dapat berada di mana saja di antara
+    angka terendah dan tertinggi.
+  </p>
+</div>

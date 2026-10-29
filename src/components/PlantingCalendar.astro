@@ -1,0 +1,235 @@
+---
+/**
+ * PlantingCalendar — kalender tanam satu komoditas selama satu tahun.
+ *
+ * Kalender ini mengikuti SATU siklus pilihan, bukan menggabungkan semua bulan
+ * tanam yang disarankan. Menggabungkannya akan menampilkan tiga jadwal
+ * pemupukan berbeda pada bulan yang sama — dan petani yang membacanya wajar
+ * menyimpulkan bahwa ia harus memupuk tiga kali.
+ *
+ * Kegiatan yang berasal dari siklus tahun sebelumnya (mis. panen yang masih
+ * berjalan pada Januari) diberi penanda tersendiri, supaya tidak tampak
+ * seolah berasal dari penanaman bulan itu.
+ *
+ * YANG BERUBAH
+ * ------------
+ * Paragraf panjang di kepala halaman dipendekkan, dan kalimat penjelas soal
+ * "mengapa hanya satu siklus" dipindahkan ke `Lipatan` — penjelasan itu penting
+ * untuk dipercaya, tetapi tidak perlu dibaca setiap kali.
+ *
+ * Kesesuaian lahan tidak lagi dua paragraf: ketinggian dan curah hujan
+ * masing-masing menjadi `Lencana` yang menjawab "cocok / tidak" sekejap, dengan
+ * kalimat lengkapnya tetap tercetak di bawahnya (bukan disembunyikan), karena
+ * inilah alasan sebuah komoditas disarankan atau tidak.
+ *
+ * GAYA
+ * ----
+ * Seluruh kotak berlatar dihapus. Panah "Jendela panen" yang dulu ditandai
+ * latar hijau kini ditandai garis tebal di atasnya. Penanda "angka masih draf"
+ * tetap dinaikkan menjadi `Lencana` yang selalu tampil.
+ *
+ * Warna dan ikon fase diambil dari `lib/fase.ts`, sama dengan `PitaWaktu`,
+ * supaya "hijau berarti penanaman" berlaku di kedua tempat.
+ */
+import type { CommodityCalendar } from '../lib/api';
+import { tanggalPanjang } from '../lib/api';
+import Ikon from './Ikon.astro';
+import Lencana from './Lencana.astro';
+import Lipatan from './Lipatan.astro';
+
+export interface Props {
+  kalender: CommodityCalendar;
+}
+
+const { kalender } = Astro.props;
+
+const NAMA_BULAN = [
+  'Januari',
+  'Februari',
+  'Maret',
+  'April',
+  'Mei',
+  'Juni',
+  'Juli',
+  'Agustus',
+  'September',
+  'Oktober',
+  'November',
+  'Desember',
+];
+
+function namaBulan(n: number): string {
+  return NAMA_BULAN[n - 1] ?? String(n);
+}
+
+---
+
+<section class="space-y-8">
+  <header class="border-t-2 border-sipanen-600 pt-5">
+    <div class="flex items-start gap-3">
+      <span class="shrink-0 mt-0.5 text-sipanen-800">
+        <Ikon nama={kalender.commodity_code} ukuran={32} />
+      </span>
+      <div class="flex-1 min-w-0">
+        <h2 class="text-2xl font-bold leading-tight">{kalender.commodity_name}</h2>
+        <p class="text-tinta-kedua">{kalender.region_name} · {kalender.tahun}</p>
+      </div>
+    </div>
+
+    <!-- Satu baris yang selalu tampil: siklus mana yang sedang dirinci. -->
+    <p class="mt-4 flex flex-wrap items-center gap-2 text-lg">
+      <Ikon nama="bibit" ukuran={24} />
+      <span>
+        Siklus dimulai{' '}
+        <strong>
+          {kalender.bulan_tanam_pilihan ? namaBulan(kalender.bulan_tanam_pilihan) : '—'}
+        </strong>
+        {kalender.bulan_tanam_pilihan_otomatis && ' (dipilih sistem)'}
+      </span>
+    </p>
+
+    {
+      kalender.jendela_tanam.length > 0 && (
+        <dl class="grid sm:grid-cols-2 gap-4 mt-4">
+          <div class="border-t border-kertas-garis pt-3">
+            <dt class="font-bold flex items-center gap-2">
+              <Ikon nama="bibit" ukuran={22} />
+              Jendela tanam
+            </dt>
+            <dd class="text-tinta-kedua">
+              {kalender.jendela_tanam.map((j) => (
+                <span class="block">
+                  {tanggalPanjang(j.mulai)} &ndash; {tanggalPanjang(j.selesai)}
+                  {j.keterangan && <span class="block text-sm">{j.keterangan}</span>}
+                </span>
+              ))}
+            </dd>
+          </div>
+          <div class="border-t-2 border-sipanen-600 pt-3">
+            <dt class="font-bold text-sipanen-900 flex items-center gap-2">
+              <Ikon nama="keranjang" ukuran={22} />
+              Jendela panen
+            </dt>
+            <dd class="text-sipanen-900">
+              {kalender.jendela_panen.map((j) => (
+                <span class="block">
+                  {tanggalPanjang(j.mulai)} &ndash; {tanggalPanjang(j.selesai)}
+                  {j.dari_tahun_lalu && (
+                    <span class="block text-sm">dari penanaman tahun sebelumnya</span>
+                  )}
+                </span>
+              ))}
+            </dd>
+          </div>
+        </dl>
+      )
+    }
+
+    <div class="mt-3">
+      <Lipatan judul="Mengapa hanya satu siklus yang dirinci?" ikon="tanya">
+        <p>
+          Bulan tanam lain yang dianjurkan hanya <strong>ditandai</strong>, tidak ikut dirinci.
+          Alasannya: bila beberapa siklus digabung, tiga jadwal pemupukan berbeda akan muncul pada
+          bulan yang sama — dan yang membacanya wajar menyimpulkan bahwa ia harus memupuk tiga kali.
+        </p>
+      </Lipatan>
+    </div>
+  </header>
+
+  <!-- Kesesuaian lahan. Ketentuan proyek melarang kalender mengabaikan
+       ketinggian tempat dan cuaca; bagian ini membuat keduanya terlihat. -->
+  <div class="border-t-2 border-kertas-garis pt-5 space-y-4">
+    <h3 class="text-xl font-bold">Apakah lahan di sini cocok?</h3>
+
+    <div class="flex flex-wrap gap-3">
+      <Lencana
+        nada={kalender.kesesuaian.ketinggian_sesuai ? 'bagus' : 'hati'}
+        teks={kalender.kesesuaian.ketinggian_sesuai ? 'Ketinggian sesuai' : 'Ketinggian perlu ditinjau'}
+        ikon={kalender.kesesuaian.ketinggian_sesuai ? 'gunung' : 'peringatan'}
+        ukuran="besar"
+      />
+      {
+        kalender.kesesuaian.curah_hujan_note && (
+          <Lencana nada="hati" teks="Curah hujan perlu ditinjau" ikon="hujan" ukuran="besar" />
+        )
+      }
+    </div>
+
+    <!-- Kalimat lengkapnya tetap tercetak, tidak disembunyikan: inilah alasan
+         sebuah komoditas disarankan atau tidak. -->
+    <p
+      class:list={[
+        'border-l-4 pl-4',
+        kalender.kesesuaian.ketinggian_sesuai
+          ? 'border-sipanen-600 text-sipanen-900'
+          : 'border-amber-500 text-amber-900',
+      ]}
+    >
+      {kalender.kesesuaian.ketinggian_note}
+    </p>
+
+    {
+      kalender.kesesuaian.curah_hujan_note && (
+        <p class="border-l-4 border-amber-500 pl-4 text-amber-900">
+          {kalender.kesesuaian.curah_hujan_note}
+        </p>
+      )
+    }
+
+    <!-- Data cuaca ditampilkan terpisah agar asalnya jelas. -->
+    <div class="text-sm text-tinta-kedua border-t border-kertas-garis pt-3">
+      {
+        kalender.weather.available ? (
+          <p>
+            Curah hujan rata-rata yang tercatat untuk wilayah ini{' '}
+            <strong>{kalender.weather.avg_monthly_mm.toFixed(0)} mm per bulan</strong>.{' '}
+            {kalender.weather.note}
+            {kalender.weather.source && <> Sumber: {kalender.weather.source}.</>}
+          </p>
+        ) : (
+          <p>{kalender.weather.note}</p>
+        )
+      }
+    </div>
+  </div>
+
+  <!-- Asal angka agronomi. Kalender yang tampak meyakinkan tanpa menyebut
+       asal angkanya adalah kalender yang tidak boleh dipercaya. -->
+  <div class="border-t-2 border-amber-500 pt-5 space-y-4">
+    <h3 class="text-xl font-bold text-amber-900 flex items-center gap-2">
+      <Ikon nama="peringatan" ukuran={24} />
+      Asal angka pada kalender ini
+    </h3>
+
+    <!-- Kalimat yang paling menentukan sikap pembaca. Selalu tampil. -->
+    <p class="text-amber-900 text-lg">
+      Angka lama tanam dan bulan tanam di bawah ini masih berupa <strong>draf</strong>, belum
+      ditinjau penyuluh pertanian setempat. Pakai sebagai rencana awal, bukan jadwal pasti.
+    </p>
+
+    <Lencana nada="hati" teks="Angka agronomi masih draf" ikon="peringatan" ukuran="besar" />
+
+    <Lipatan judul="Rincian asal angka" ikon="panduan" nada="peringatan">
+      <div class="space-y-2 text-amber-900">
+        <p>
+          Lama tanam sampai panen, lama masa panen, dan bulan tanam yang dianjurkan berasal dari{' '}
+          {kalender.sumber_agronomi || 'data agronomi yang tersimpan'}.
+        </p>
+        <p>
+          Umur tanaman, keadaan tanah, dan cuaca dapat menggeser jadwal sebenarnya. Sesuaikan dengan
+          pengamatan di lahan.
+        </p>
+        {kalender.catatan.length > 0 && (
+          <ul class="space-y-1">
+            {kalender.catatan.map((c) => (
+              <li class="flex gap-2">
+                <span class="mt-2 w-1.5 h-1.5 rounded-full bg-amber-700 shrink-0" aria-hidden="true" />
+                <span>{c}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </Lipatan>
+  </div>
+</section>

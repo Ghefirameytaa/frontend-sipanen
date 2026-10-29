@@ -1,0 +1,86 @@
+---
+import DataSourceBadge from './DataSourceBadge.astro';
+import type { PriceHistoryItem, PriceItem } from '../lib/api';
+import { rupiah, tanggalPanjang } from '../lib/api';
+
+export interface Props {
+  komoditas: string;
+  riwayat: PriceHistoryItem[];
+  hargaTerkini: PriceItem | null;
+}
+
+const { komoditas, riwayat, hargaTerkini } = Astro.props;
+const titik = [...riwayat].sort((a, b) => a.date.localeCompare(b.date));
+const lebar = 780;
+const tinggi = 300;
+const kiri = 92;
+const kanan = 20;
+const atas = 22;
+const bawah = 44;
+const lebarGrafik = lebar - kiri - kanan;
+const tinggiGrafik = tinggi - atas - bawah;
+const hargaMin = titik.length ? Math.floor(Math.min(...titik.map((d) => d.price)) * 0.9) : 0;
+const hargaMax = titik.length ? Math.ceil(Math.max(...titik.map((d) => d.price)) * 1.1) : 0;
+const rentangHarga = Math.max(1, hargaMax - hargaMin);
+const x = (i: number) => kiri + (titik.length < 2 ? lebarGrafik / 2 : (i / (titik.length - 1)) * lebarGrafik);
+const y = (nilai: number) => atas + ((hargaMax - nilai) / rentangHarga) * tinggiGrafik;
+const garis = titik.map((d, i) => `${x(i)},${y(d.price)}`).join(' ');
+const sumbuHarga = titik.length ? [hargaMax, (hargaMax + hargaMin) / 2, hargaMin] : [];
+const labelTanggal = [0, Math.floor((titik.length - 1) / 2), titik.length - 1]
+  .filter((i, posisi, semua) => semua.indexOf(i) === posisi)
+  .map((i) => ({ i, label: tanggalPanjang(titik[i].date) }));
+const sumber = titik.find((d) => d.source)?.source ?? hargaTerkini?.source;
+---
+
+<section class="space-y-5 rounded-card border border-kertas-garis bg-white p-5 shadow-sm sm:p-7" aria-labelledby="judul-tren-harga">
+  <div class="flex flex-wrap items-start justify-between gap-3 border-b border-kertas-garis pb-4">
+    <div>
+      <p class="text-xs font-bold uppercase tracking-wider text-sipanen-800">Pergerakan pasar</p>
+      <h3 id="judul-tren-harga" class="mt-1 font-display text-2xl font-bold text-tinta-utama">Tren harga {komoditas}</h3>
+      <p class="mt-1 text-sm text-tinta-kedua">Berdasarkan catatan harga aktual yang tersedia.</p>
+    </div>
+    {sumber ? <DataSourceBadge kind="aktual" warna="realtime" sumber={sumber} ukuran="kecil" /> : <DataSourceBadge kind="tidak_diketahui" ukuran="kecil" />}
+  </div>
+
+  <div class="grid gap-3 sm:grid-cols-3">
+    <div class="rounded-xl border border-kertas-garis border-l-4 border-l-emerald-600 bg-white p-4">
+      <p class="text-xs font-semibold uppercase text-tinta-kedua">Harga terkini</p>
+      {hargaTerkini ? <p class="mt-1 text-xl font-extrabold tabular-nums text-sipanen-900">{rupiah(hargaTerkini.price)} <span class="text-sm font-medium">/ {hargaTerkini.unit}</span></p> : <p class="mt-1 font-semibold text-tinta-kedua">Belum tersedia</p>}
+      {hargaTerkini && <p class="mt-1 text-xs text-tinta-kedua">{tanggalPanjang(hargaTerkini.date)}</p>}
+    </div>
+    <div class="rounded-xl border border-kertas-garis border-l-4 border-l-amber-500 bg-white p-4">
+      <p class="text-xs font-semibold uppercase text-tinta-kedua">Catatan dalam grafik</p>
+      <p class="mt-1 text-xl font-extrabold tabular-nums text-tinta-utama">{titik.length}</p>
+    </div>
+    <div class="rounded-xl border border-kertas-garis border-l-4 border-l-blue-500 bg-white p-4">
+      <p class="text-xs font-semibold uppercase text-tinta-kedua">Periode data</p>
+      <p class="mt-1 font-bold text-tinta-utama">{titik.length ? `${tanggalPanjang(titik[0].date)} – ${tanggalPanjang(titik[titik.length - 1].date)}` : 'Belum tersedia'}</p>
+    </div>
+  </div>
+
+  <div class="overflow-x-auto rounded-xl border border-kertas-garis bg-white p-2 sm:p-4">
+    {titik.length ? (
+      <svg viewBox={`0 0 ${lebar} ${tinggi}`} class="h-auto min-w-[34rem] w-full" role="img" aria-labelledby="judul-grafik-tren deskripsi-grafik-tren">
+        <title id="judul-grafik-tren">Riwayat harga aktual {komoditas}</title>
+        <desc id="deskripsi-grafik-tren">Grafik memuat {titik.length} catatan harga aktual dari {tanggalPanjang(titik[0].date)} sampai {tanggalPanjang(titik[titik.length - 1].date)}.</desc>
+        {sumbuHarga.map((nilai, i) => {
+          const yGaris = atas + (tinggiGrafik * i) / (sumbuHarga.length - 1);
+          return <g><line x1={kiri} x2={lebar - kanan} y1={yGaris} y2={yGaris} stroke="#E5E7EB" /><text x={kiri - 10} y={yGaris + 4} text-anchor="end" fill="#52615B" font-size="11">{rupiah(nilai)}</text></g>;
+        })}
+        {titik.length > 1 && <polygon points={`${kiri},${atas + tinggiGrafik} ${garis} ${lebar - kanan},${atas + tinggiGrafik}`} fill="#DDEBDD" fill-opacity="0.7" />}
+        <polyline points={garis} fill="none" stroke="#397B58" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+        {titik.map((d, i) => <circle cx={x(i)} cy={y(d.price)} r="4" fill="#397B58" stroke="white" stroke-width="2"><title>{tanggalPanjang(d.date)}: {rupiah(d.price)}</title></circle>)}
+        {labelTanggal.map(({ i, label }) => <text x={x(i)} y={tinggi - 12} text-anchor={i === 0 ? 'start' : i === titik.length - 1 ? 'end' : 'middle'} fill="#52615B" font-size="11">{label}</text>)}
+      </svg>
+    ) : (
+      <div class="flex min-h-64 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-kertas-garis bg-white px-5 text-center">
+        <div aria-hidden="true" class="grid h-32 w-full max-w-2xl grid-rows-4 border-b border-l border-kertas-garis">
+          {[0, 1, 2, 3].map(() => <span class="border-t border-dashed border-stone-200"></span>)}
+        </div>
+        <p class="mt-3 font-semibold text-tinta-utama">Data riwayat harga belum tersedia</p>
+        <p class="max-w-lg text-sm text-tinta-kedua">Grafik akan menampilkan pergerakan harga aktual setelah catatan untuk komoditas ini tersedia. Belum ada garis atau angka harga yang ditampilkan.</p>
+      </div>
+    )}
+  </div>
+  <p class="text-xs leading-relaxed text-tinta-kedua">Sumber grafik: catatan harga aktual dari server data. Grafik tidak membuat atau memperkirakan angka saat data riwayat kosong.</p>
+</section>

@@ -1,0 +1,9 @@
+
+node_modules/
+dist/
+.astro/s
+
+.env
+.env.*
+!.env.example
+src.zip

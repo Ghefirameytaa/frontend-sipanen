@@ -1,0 +1,33 @@
+---
+interface Komoditas {
+  id: number;
+  name: string;
+}
+
+interface Props {
+  items: Komoditas[];
+  selectedId: number;
+}
+
+const { items, selectedId } = Astro.props;
+---
+
+<nav aria-label="Pilih komoditas">
+  <p class="mb-2 text-sm font-semibold text-tinta-utama">Komoditas</p>
+  <div class="flex flex-wrap gap-2">
+    {items.map((item) => (
+      <a
+        href={`/harga?bagian=prediksi&komoditas=${item.id}`}
+        aria-current={item.id === selectedId ? 'page' : undefined}
+        class:list={[
+          'inline-flex min-h-10 items-center rounded-full border px-4 py-2 text-sm font-bold transition-colors',
+          item.id === selectedId
+            ? 'border-sipanen-600 bg-sipanen-600 text-white hover:bg-sipanen-700'
+            : 'border-kertas-garis bg-white text-tinta-utama hover:bg-stone-50',
+        ]}
+      >
+        {item.name}
+      </a>
+    ))}
+  </div>
+</nav>

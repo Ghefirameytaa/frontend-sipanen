@@ -1,0 +1,76 @@
+---
+/**
+ * DataState — tampilan untuk keadaan "tidak ada data" dan "terjadi galat".
+ *
+ * MENGAPA DIPISAH DARI HALAMAN
+ * -----------------------------
+ * Versi lama menutupi kegagalan backend dengan angka acak, sehingga halaman
+ * selalu tampak berisi. Sekarang kegagalan harus terlihat, dan dua keadaan
+ * berikut tidak boleh disamakan karena penanganannya berbeda bagi petani:
+ *
+ *  - `kosong` — sistem berjalan baik, datanya memang belum ada. Petani tidak
+ *    perlu mengulang; yang perlu adalah menunggu data masuk atau menghubungi
+ *    pendamping.
+ *  - `galat`  — ada yang rusak. Mengulang beberapa saat lagi masuk akal.
+ *
+ * Menampilkan keduanya dengan pesan yang sama membuat petani mengulang-ulang
+ * tindakan yang tidak akan mengubah apa pun.
+ *
+ * BENTUK
+ * ------
+ * Kotak berlatar dihapus, tetapi TIDAK dilemahkan: garis tebal di sisi kiri
+ * dan judul berwarna tetap membuatnya mustahil terlewat. Keadaan gagal adalah
+ * hal yang paling tidak boleh dibikin samar demi kerapian.
+ */
+import Ikon from './Ikon.astro';
+
+export interface Props {
+  jenis: 'kosong' | 'galat';
+  judul?: string;
+  pesan: string;
+  /** Langkah yang sebaiknya dilakukan pembaca. */
+  saran?: string;
+  /** Tautan pemulihan, mis. kembali ke beranda. */
+  tautan?: { href: string; label: string };
+}
+
+const { jenis, pesan, saran, tautan } = Astro.props;
+
+const judul = Astro.props.judul ?? (jenis === 'galat' ? 'Data gagal dimuat' : 'Data belum tersedia');
+
+const gaya =
+  jenis === 'galat'
+    ? { garis: 'border-red-600', judul: 'text-red-900', isi: 'text-red-800', ikon: 'text-red-800' }
+    : { garis: 'border-sipanen-600', judul: 'text-sipanen-900', isi: 'text-sipanen-900', ikon: 'text-sipanen-800' };
+---
+
+<div
+  class:list={['border-l-4 pl-4 sm:pl-5 space-y-2', gaya.garis]}
+  role={jenis === 'galat' ? 'alert' : 'status'}
+>
+  <h2 class:list={['text-xl font-bold flex items-center gap-2', gaya.judul]}>
+    <Ikon nama={jenis === 'galat' ? 'peringatan' : 'tanya'} ukuran={26} />
+    {judul}
+  </h2>
+  <p class:list={['text-base', gaya.isi]}>{pesan}</p>
+  {
+    saran && (
+      <p class:list={['text-base font-medium', gaya.isi]}>
+        <span class="font-bold">Yang dapat dilakukan: </span>
+        {saran}
+      </p>
+    )
+  }
+  {
+    tautan && (
+      <p class="pt-2">
+        <a
+          href={tautan.href}
+          class="inline-flex items-center min-h-sentuh rounded-control bg-sipanen-700 px-5 font-semibold text-white transition-colors hover:bg-sipanen-800"
+        >
+          {tautan.label}
+        </a>
+      </p>
+    )
+  }
+</div>

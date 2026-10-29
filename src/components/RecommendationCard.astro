@@ -1,0 +1,238 @@
+---
+/**
+ * RecommendationCard — satu saran tanam beserta alasannya.
+ *
+ * MENGAPA ALASAN TETAP DITAMPILKAN
+ * --------------------------------
+ * Saran tanpa alasan hanya dapat dipercaya atau diabaikan; keduanya tidak
+ * berguna. Alasan di sini diturunkan langsung dari perhitungan mesin
+ * rekomendasi, sehingga petani dapat menilai sendiri apakah sarannya masuk
+ * akal untuk lahannya.
+ *
+ * Yang berubah hanyalah BENTUKNYA. Sebelumnya keenam alasan ditulis sebagai
+ * enam kalimat panjang. Sekarang yang tampil lebih dulu adalah penanda dampak
+ * dan nama faktornya — cukup untuk melihat bahwa ada tiga hal yang mendukung
+ * dan dua yang menahan. Kalimat lengkapnya tetap ada di `Lipatan` di bawahnya.
+ *
+ * Konsep yang paling penting secara agronomis tetap ditekankan: cabai dan
+ * tomat baru dapat dipetik 3–4 bulan setelah tanam, jadi harga hari ini tidak
+ * menentukan pendapatan. Karena itu harga hari ini dan perkiraan harga saat
+ * panen ditampilkan sebagai dua batang yang panjangnya sebanding.
+ *
+ * BENTUK
+ * ------
+ * Kartu memakai bingkai tipis ber-radius dan bayangan halus; warna garis
+ * mengikuti peringkat 1 sampai 3. Tiap cip alasan kehilangan
+ * kotaknya, dan ikon faktornya dihapus — dua ikon dalam satu cip membuat mata
+ * harus memilih mana yang dibaca lebih dulu. Yang tersisa hanya penanda
+ * dampak, karena itulah yang membedakan "mendukung" dari "menahan".
+ */
+import type { RecommendationItem } from '../lib/api';
+import { rupiah, tanggalPanjang, persen, selisihHari, rentangKeyakinan } from '../lib/api';
+import { warnaKomoditas } from '../lib/komoditas';
+import BatangBanding from './BatangBanding.astro';
+import Ikon from './Ikon.astro';
+import Lencana from './Lencana.astro';
+import Lipatan from './Lipatan.astro';
+import PitaPasti from './PitaPasti.astro';
+
+export interface Props {
+  item: RecommendationItem;
+}
+
+const { item } = Astro.props;
+
+/** Warna garis pemisah antar peringkat; makin muda sesuai urutan. */
+const GARIS_PERINGKAT: Record<number, string> = {
+  1: 'border-sipanen-600',
+  2: 'border-sipanen-400',
+  3: 'border-sipanen-300',
+};
+const bingkai = GARIS_PERINGKAT[item.rank] ?? 'border-kertas-garis';
+
+const naik = item.expected_gain_pct > 0;
+const lebar = item.uncertainty_pct >= 25;
+const hariKePanen = selisihHari(item.expected_harvest_start);
+
+// Batas bawah dan batas atas perkiraan. Rumusnya dijelaskan di `rentangKeyakinan`
+// pada `lib/api.ts` — sengaja tidak ditulis ulang di sini supaya tidak ada dua
+// tempat yang bisa berbeda.
+const rentang = rentangKeyakinan(item);
+
+/**
+ * Putusan sekilas. Sengaja TIDAK berbunyi "bagus ditanam" — sistem ini tidak
+ * mengukur modal, tenaga kerja, atau pengalaman petani, sehingga tidak berhak
+ * memberi penilaian semacam itu. Yang ditulis adalah apa yang benar-benar
+ * diukur: arah perkiraan harganya.
+ */
+const putusan = !naik
+  ? { nada: 'hati' as const, teks: 'Perkiraan harga turun', ikon: 'panah-turun' }
+  : lebar
+    ? { nada: 'hati' as const, teks: 'Naik, tapi belum pasti', ikon: 'tanya' }
+    : { nada: 'bagus' as const, teks: 'Perkiraan harga naik', ikon: 'panah-naik' };
+
+/**
+ * Penanda dampak tiap alasan. Hanya warna teks dan satu ikon — tidak ada
+ * kotak, karena daftar alasan yang seluruhnya berkotak berubah menjadi
+ * dinding kotak yang justru menyulitkan dilihat mana yang menahan.
+ */
+const GAYA_DAMPAK: Record<string, { teks: string; ikon: string; tanda: string }> = {
+  positif: { teks: 'text-sipanen-900', ikon: 'centang', tanda: 'Mendukung' },
+  negatif: { teks: 'text-amber-900', ikon: 'peringatan', tanda: 'Menahan' },
+  netral: { teks: 'text-tinta-kedua', ikon: 'tanya', tanda: 'Perlu diketahui' },
+};
+
+function gayaDampak(dampak: string) {
+  return GAYA_DAMPAK[dampak] ?? GAYA_DAMPAK.netral;
+}
+---
+
+<article
+  class:list={['space-y-5 rounded-card border bg-white p-5 shadow-sm sm:p-6', bingkai]}
+  data-animasi
+  aria-labelledby={`saran-${item.commodity_id}`}
+>
+  <header class="flex items-start gap-3">
+    <span class:list={['shrink-0 mt-0.5', warnaKomoditas(item.commodity_code)]}>
+      <Ikon nama={item.commodity_code} ukuran={34} />
+    </span>
+
+    <div class="flex-1 min-w-0">
+      <h3 id={`saran-${item.commodity_id}`} class="text-2xl font-bold leading-tight">
+        <span class="sr-only">Peringkat {item.rank}: </span>
+        {item.commodity_name}
+      </h3>
+      <p class="text-tinta-kedua">{item.variety} · per {item.unit}</p>
+    </div>
+
+    <!-- Nomor peringkat dipindah ke ujung kanan dan tidak lagi berupa kotak
+         penuh: yang perlu dibaca adalah nama komoditasnya, bukan angkanya. -->
+    <span class="shrink-0 text-2xl font-extrabold text-tinta-redup" aria-hidden="true">
+      #{item.rank}
+    </span>
+  </header>
+
+  <div class="space-y-6">
+    <Lencana nada={putusan.nada} teks={putusan.teks} ikon={putusan.ikon} ukuran="besar" />
+
+    <!-- Dua angka yang paling mudah tertukar. Ditampilkan sebagai dua batang
+         yang panjangnya sebanding, supaya selisihnya terlihat tanpa dibaca. -->
+    <BatangBanding
+      kiri={{
+        label: 'Harga hari ini',
+        nilai: item.current_price,
+        teks: rupiah(item.current_price),
+        nada: 'netral',
+      }}
+      kanan={{
+        label: 'Perkiraan saat panen',
+        nilai: item.expected_price_at_harvest,
+        teks: rupiah(item.expected_price_at_harvest),
+        nada: naik ? 'utama' : 'peringatan',
+      }}
+      keterangan={item.expected_gain_pct !== 0
+        ? `Selisih ${persen(item.expected_gain_pct, 0)} dibanding harga hari ini`
+        : undefined}
+    />
+
+    <!-- Jendela waktu. Ditulis sebagai kalender, bukan sekadar tanggal,
+         karena petani merencanakan berdasarkan bulan. -->
+    <dl class="grid sm:grid-cols-2 gap-4">
+      <div class="border-t border-kertas-garis pt-3 flex items-start gap-2">
+        <span class="text-sipanen-800 shrink-0 mt-0.5"><Ikon nama="bibit" ukuran={22} /></span>
+        <div>
+          <dt class="font-bold">Waktu tanam</dt>
+          <dd class="text-tinta-kedua">
+            {tanggalPanjang(item.planting_window_start)} &ndash;{' '}
+            {tanggalPanjang(item.planting_window_end)}
+          </dd>
+        </div>
+      </div>
+      <div class="border-t-2 border-sipanen-600 pt-3 flex items-start gap-2">
+        <span class="text-sipanen-800 shrink-0 mt-0.5"><Ikon nama="keranjang" ukuran={22} /></span>
+        <div>
+          <dt class="font-bold text-sipanen-900">Perkiraan mulai panen</dt>
+          <dd class="text-sipanen-900">
+            {tanggalPanjang(item.expected_harvest_start)}
+            {hariKePanen !== null && hariKePanen > 0 && (
+              <span class="block text-sm">sekitar {hariKePanen} hari dari sekarang</span>
+            )}
+          </dd>
+        </div>
+      </div>
+    </dl>
+
+    <!-- Ketidakpastian. Batas bawah dan batas atasnya wajib terlihat; angka
+         tengah saja membuat perkiraan tampak seperti kepastian. -->
+    <div>
+      <h4 class="font-bold text-lg mb-3 flex items-center gap-2">
+        <Ikon nama="banding" ukuran={24} />
+        Seberapa lebar rentangnya?
+      </h4>
+      <PitaPasti
+        teksBawah={rupiah(rentang.bawah)}
+        teksTengah={rupiah(rentang.tengah)}
+        teksAtas={rupiah(rentang.atas)}
+        nilaiBawah={rentang.bawah}
+        nilaiTengah={rentang.tengah}
+        nilaiAtas={rentang.atas}
+        persen={item.uncertainty_pct}
+        satuan={item.unit}
+      />
+    </div>
+
+    <!-- Alasan. Yang tampil lebih dulu adalah penanda dampak dan nama
+         faktornya; kalimat lengkapnya ada di `Lipatan` di bawah. -->
+    {
+      item.reasons.length > 0 && (
+        <div>
+          <h4 class="font-bold text-lg mb-3 flex items-center gap-2">
+            <Ikon nama="saran" ukuran={24} />
+            Apa yang mendukung dan apa yang menahan?
+          </h4>
+          <ul class="space-y-2">
+            {item.reasons.map((a) => {
+              const g = gayaDampak(a.impact);
+              return (
+                <li class:list={['flex items-center gap-2', g.teks]}>
+                  <span class="shrink-0">
+                    <Ikon nama={g.ikon} ukuran={22} />
+                  </span>
+                  <span class="font-semibold">{a.factor}</span>
+                </li>
+              );
+            })}
+          </ul>
+
+          <div class="mt-3">
+            <Lipatan judul="Penjelasan tiap alasan" ikon="buku">
+              <ul class="space-y-3">
+                {item.reasons.map((a) => (
+                  <li>
+                    <p class="font-bold">
+                      <span class="text-tinta-redup">{gayaDampak(a.impact).tanda} · </span>
+                      {a.factor}
+                    </p>
+                    <p class="text-tinta-kedua">{a.detail}</p>
+                  </li>
+                ))}
+              </ul>
+              <p class="text-sm text-tinta-redup">
+                Skor perbandingan {item.score.toFixed(1)} dari 100. Skor ini hanya berlaku untuk
+                membandingkan komoditas di halaman ini, bukan penilaian mutlak.
+              </p>
+            </Lipatan>
+          </div>
+        </div>
+      )
+    }
+
+    {
+      item.recommendation_text && (
+        <Lipatan judul="Saran lengkap dalam kalimat" ikon="buku" nada="peringatan">
+          <p class="text-amber-900">{item.recommendation_text}</p>
+        </Lipatan>
+      )
+    }
+  </div>
+</article>

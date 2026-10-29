@@ -1,0 +1,424 @@
+---
+/**
+ * PlantDiseaseUpload — komponen form upload gambar tanaman untuk deteksi penyakit.
+ *
+ * Mendukung endpoint diagnosis tomat dan cabai yang tersedia di backend.
+ *
+ * Komponen ini menggunakan vanilla JS (is:inline) untuk menghindari hydration
+ * island yang tidak diperlukan. Seluruh interaksi (pilih tanaman, drag-drop,
+ * preview, submit) ditangani lewat event listener biasa.
+ */
+---
+
+<div id="pd-upload-wrap" class="space-y-6">
+  <!-- Pilihan tanaman -->
+  <div>
+    <p class="mb-2 text-sm font-semibold text-tinta-utama">Pilih tanaman</p>
+    <div class="grid grid-cols-1 gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Pilih jenis tanaman">
+      <button
+        type="button"
+        id="pd-plant-tomat"
+        role="radio"
+        aria-checked="true"
+        data-plant="tomat"
+        class="pd-plant-btn flex min-h-sentuh items-center justify-center gap-2 rounded-full border-2 border-[#CFEB73] bg-[#CFEB73] px-4 py-2.5 font-semibold text-[#263238] shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+      >
+        Tomat
+      </button>
+      <button
+        type="button"
+        id="pd-plant-cabai"
+        role="radio"
+        aria-checked="false"
+        data-plant="cabai"
+        class="pd-plant-btn flex min-h-sentuh items-center justify-center gap-2 rounded-full border-2 border-kertas-garis bg-white px-4 py-2.5 font-semibold text-tinta-kedua shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+      >
+        Cabai
+      </button>
+    </div>
+  </div>
+
+  <!-- Drop zone -->
+  <div
+    id="pd-dropzone"
+    class="relative rounded-card border-2 border-dashed border-kertas-garis p-8 text-center
+          transition-all duration-200 cursor-pointer
+          hover:border-[#89939E] hover:bg-[#F8F9FA] hover:shadow-md
+           focus-within:border-[#89939E]"
+    role="button"
+    tabindex="0"
+    aria-label="Area upload gambar, klik atau seret gambar ke sini"
+  >
+    <!-- State default: belum ada gambar -->
+    <div id="pd-placeholder" class="space-y-3">
+      <div class="flex justify-center">
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+          stroke-linejoin="round" class="text-sipanen-600" aria-hidden="true">
+          <path d="M14.4 3.4H9.6l-1.8 2H4.4A1.8 1.8 0 0 0 2.6 7.2v11.2A1.8 1.8 0 0 0 4.4 20h15.2a1.8 1.8 0 0 0 1.8-1.8V7.2a1.8 1.8 0 0 0-1.8-1.8h-3.4z"/>
+          <circle cx="12" cy="12.6" r="3.4"/>
+          <path d="M17.4 6.6h.01"/>
+        </svg>
+      </div>
+      <p class="font-semibold text-tinta-utama text-lg">Seret gambar ke sini</p>
+      <p class="text-sm text-tinta-redup">JPG, PNG, atau WebP · Maks. 10 MB · Bisa gunakan kamera ponsel</p>
+    </div>
+
+    <!-- State preview gambar -->
+    <div id="pd-preview-wrap" class="hidden space-y-4">
+      <div class="relative mx-auto w-fit">
+        <img
+          id="pd-preview-img"
+          src=""
+          alt="Pratinjau gambar yang dipilih"
+          class="max-h-64 rounded-control object-contain shadow-md"
+        />
+        <button
+          id="pd-clear-image"
+          type="button"
+          class="absolute -right-3 -top-3 inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-[#E53835] text-xl font-bold leading-none text-white shadow-[0_2px_8px_rgba(38,50,56,0.35)] transition-all duration-200 hover:scale-110 hover:bg-[#263238] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E53835] active:scale-95 motion-reduce:transform-none motion-reduce:transition-none"
+          aria-label="Hapus gambar dan pilih gambar lain"
+          title="Hapus gambar"
+        >
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
+      <p id="pd-preview-name" class="text-sm text-tinta-kedua truncate"></p>
+    </div>
+
+    <!-- Input file tersembunyi -->
+    <input
+      id="pd-file-input"
+      type="file"
+      accept="image/jpeg,image/png,image/webp"
+      capture="environment"
+      class="sr-only"
+      aria-label="Pilih file gambar tanaman"
+    />
+  </div>
+
+  <!-- Pesan error validasi klien -->
+  <p id="pd-client-error" class="hidden text-bahaya-700 font-semibold text-sm" role="alert"></p>
+
+  <div class="space-y-3">
+    <label
+      for="pd-file-input"
+      data-file-action
+      class="inline-flex min-h-sentuh w-full cursor-pointer items-center justify-center rounded-control bg-[#ABBED1] px-5 py-2.5 font-semibold text-[#263238] transition-all duration-200 hover:bg-[#9FB4CA] hover:shadow-md"
+    >
+      <span id="pd-file-action-text">Pilih atau ambil foto</span>
+    </label>
+
+    <!-- Tombol periksa -->
+    <button
+      id="pd-btn-analisis"
+      type="button"
+      disabled
+      class="flex min-h-sentuh w-full items-center justify-center gap-3 rounded-control bg-[#64902E] px-5 py-2.5
+             text-white hover:bg-[#125112] hover:text-white
+             disabled:opacity-40 disabled:cursor-not-allowed
+             font-semibold
+             transition-all duration-200 shadow-sm hover:shadow-md"
+      aria-describedby="pd-status"
+    >
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round" aria-hidden="true">
+        <path d="M14.4 3.4H9.6l-1.8 2H4.4A1.8 1.8 0 0 0 2.6 7.2v11.2A1.8 1.8 0 0 0 4.4 20h15.2a1.8 1.8 0 0 0 1.8-1.8V7.2a1.8 1.8 0 0 0-1.8-1.8h-3.4z"/>
+        <circle cx="12" cy="12.6" r="3.4"/>
+        <path d="M17.4 6.6h.01"/>
+      </svg>
+      <span id="pd-btn-label">Periksa sekarang</span>
+    </button>
+  </div>
+
+  <!-- Status loading / error API -->
+  <div id="pd-status" aria-live="polite" class="hidden">
+    <!-- Loading -->
+    <div id="pd-loading" class="hidden flex items-center gap-3 text-sipanen-700 font-semibold">
+      <svg class="animate-spin shrink-0" width="22" height="22" viewBox="0 0 24 24"
+        fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M21 12a9 9 0 1 1-6.2-8.56"/>
+      </svg>
+      <span>Sedang memeriksa gambar, harap tunggu…</span>
+    </div>
+    <!-- Error API / belum tersedia -->
+    <div id="pd-api-error" class="hidden bg-bahaya-50 border border-bahaya-200 rounded-control p-4">
+      <p class="font-semibold text-bahaya-800" id="pd-api-error-msg"></p>
+    </div>
+  </div>
+</div>
+
+<script is:inline>
+(function () {
+  'use strict';
+
+  var dropzone      = document.getElementById('pd-dropzone');
+  var fileInput     = document.getElementById('pd-file-input');
+  var placeholder   = document.getElementById('pd-placeholder');
+  var previewWrap   = document.getElementById('pd-preview-wrap');
+  var previewImg    = document.getElementById('pd-preview-img');
+  var previewName   = document.getElementById('pd-preview-name');
+  var clearImageBtn = document.getElementById('pd-clear-image');
+  var fileAction = document.querySelector('[data-file-action]');
+  var fileActionText = document.getElementById('pd-file-action-text');
+  var btnAnalisis   = document.getElementById('pd-btn-analisis');
+  var btnLabel      = document.getElementById('pd-btn-label');
+  var clientError   = document.getElementById('pd-client-error');
+  var statusWrap    = document.getElementById('pd-status');
+  var loadingEl     = document.getElementById('pd-loading');
+  var apiErrorWrap  = document.getElementById('pd-api-error');
+  var apiErrorMsg   = document.getElementById('pd-api-error-msg');
+  var plantButtons  = document.querySelectorAll('.pd-plant-btn');
+
+  var selectedFile = null;
+  var previewUrl = null;
+  var selectedPlant = 'tomat';
+  var dragDepth = 0;
+  var MAX_BYTES = 10 * 1024 * 1024;
+  var ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
+
+  // ── Pilihan tanaman ─────────────────────────────────────────────────────
+  function setPlant(plant) {
+    selectedPlant = plant;
+    plantButtons.forEach(function (btn) {
+      var active = btn.dataset.plant === plant;
+      btn.setAttribute('aria-checked', String(active));
+      btn.classList.toggle('border-[#CFEB73]', active);
+      btn.classList.toggle('bg-[#CFEB73]', active);
+      btn.classList.toggle('text-[#263238]', active);
+      btn.classList.toggle('border-kertas-garis', !active);
+      btn.classList.toggle('bg-white', !active);
+      btn.classList.toggle('text-tinta-kedua', !active);
+    });
+    hideStatus();
+  }
+
+  plantButtons.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      setPlant(btn.dataset.plant);
+    });
+  });
+
+  // ── Upload gambar ───────────────────────────────────────────────────────
+  function setFile(file) {
+    if (!file) return;
+
+    hideClientError();
+    if (!ALLOWED.includes(file.type)) {
+      showClientError('File harus berupa JPG, PNG, atau WebP.');
+      return;
+    }
+    if (file.size > MAX_BYTES) {
+      showClientError('Ukuran file melebihi 10 MB.');
+      return;
+    }
+
+    selectedFile = file;
+
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    previewUrl = URL.createObjectURL(file);
+    previewImg.src = previewUrl;
+    previewName.textContent = file.name + ' (' + (file.size / 1024).toFixed(0) + ' KB)';
+    placeholder.classList.add('hidden');
+    previewWrap.classList.remove('hidden');
+    fileActionText.textContent = 'Ganti gambar';
+    fileAction.classList.remove('bg-[#ABBED1]', 'text-[#263238]', 'hover:bg-[#9FB4CA]');
+    fileAction.classList.add('bg-[#E53835]', 'text-white', 'hover:bg-[#E53835]/90');
+
+    btnAnalisis.disabled = false;
+    hideStatus();
+  }
+
+  function clearFile() {
+    selectedFile = null;
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    previewUrl = null;
+    previewImg.removeAttribute('src');
+    previewName.textContent = '';
+    fileInput.value = '';
+    placeholder.classList.remove('hidden');
+    previewWrap.classList.add('hidden');
+    fileActionText.textContent = 'Pilih atau ambil foto';
+    fileAction.classList.remove('bg-[#E53835]', 'text-white', 'hover:bg-[#E53835]/90');
+    fileAction.classList.add('bg-[#ABBED1]', 'text-[#263238]', 'hover:bg-[#9FB4CA]');
+    btnAnalisis.disabled = true;
+    btnLabel.textContent = 'Periksa sekarang';
+    hideClientError();
+    hideStatus();
+  }
+
+  function showClientError(msg) {
+    clientError.textContent = msg;
+    clientError.classList.remove('hidden');
+  }
+
+  function hideClientError() {
+    clientError.classList.add('hidden');
+  }
+
+  function hideStatus() {
+    statusWrap.classList.add('hidden');
+    loadingEl.classList.add('hidden');
+    apiErrorWrap.classList.add('hidden');
+  }
+
+  function showLoading() {
+    statusWrap.classList.remove('hidden');
+    loadingEl.classList.remove('hidden');
+    apiErrorWrap.classList.add('hidden');
+    btnAnalisis.disabled = true;
+    btnLabel.textContent = 'Memeriksa…';
+  }
+
+  function showAPIError(msg) {
+    statusWrap.classList.remove('hidden');
+    apiErrorWrap.classList.remove('hidden');
+    loadingEl.classList.add('hidden');
+    apiErrorMsg.textContent = msg;
+    btnAnalisis.disabled = false;
+    btnLabel.textContent = 'Periksa sekarang';
+  }
+
+  fileInput.addEventListener('change', function () {
+    if (fileInput.files && fileInput.files[0]) {
+      setFile(fileInput.files[0]);
+    }
+  });
+
+  clearImageBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    clearFile();
+  });
+
+  dropzone.addEventListener('click', function (e) {
+    if (e.target.tagName === 'LABEL' || e.target.closest('label') || e.target.closest('#pd-clear-image')) return;
+    if (selectedFile) return;
+    fileInput.click();
+  });
+
+  dropzone.addEventListener('keydown', function (e) {
+    if ((e.key === 'Enter' || e.key === ' ') && !selectedFile) {
+      e.preventDefault();
+      fileInput.click();
+    }
+  });
+
+  dropzone.addEventListener('dragenter', function (e) {
+    e.preventDefault();
+    dragDepth += 1;
+    dropzone.classList.add('border-[#89939E]', 'bg-[#F8F9FA]', 'ring-2', 'ring-[#ABBED1]');
+  });
+
+  dropzone.addEventListener('dragover', function (e) {
+    e.preventDefault();
+  });
+
+  dropzone.addEventListener('dragleave', function () {
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) {
+      dropzone.classList.remove('border-[#89939E]', 'bg-[#F8F9FA]', 'ring-2', 'ring-[#ABBED1]');
+    }
+  });
+
+  dropzone.addEventListener('drop', function (e) {
+    e.preventDefault();
+    dragDepth = 0;
+    dropzone.classList.remove('border-[#89939E]', 'bg-[#F8F9FA]', 'ring-2', 'ring-[#ABBED1]');
+    var files = e.dataTransfer && e.dataTransfer.files;
+    if (files && files[0]) setFile(files[0]);
+  });
+
+  // ── Submit ──────────────────────────────────────────────────────────────
+  btnAnalisis.addEventListener('click', function () {
+    if (!selectedFile) return;
+
+    showLoading();
+
+    var formData = new FormData();
+    formData.append('image', selectedFile);
+
+  var endpointPath = selectedPlant === 'tomat' ? '/api/diagnose/tomato' : '/api/diagnose/cabai';
+  var apiBase = (window.__SIPANEN_API_BASE__ || 'http://127.0.0.1:3000') + endpointPath;
+
+    fetch(apiBase, {
+      method: 'POST',
+      body: formData,
+    })
+      .then(function (res) {
+        return res.json().then(function (body) {
+          return { ok: res.ok, status: res.status, body: body };
+        });
+      })
+      .then(function (r) {
+        hideStatus();
+        btnAnalisis.disabled = false;
+        btnLabel.textContent = 'Periksa sekarang';
+
+        if (!r.ok) {
+          var msg = (r.body.error && r.body.error.message) || 'Terjadi kesalahan, silakan coba lagi.';
+          showAPIError(msg);
+          return;
+        }
+
+        var td = r.body.data;
+        var keparahan = (td.tingkat_keparahan || '').toLowerCase();
+        
+        // Aturan daun vs non-daun
+        var isNonLeaf = td.kelas === 'no_leaf' || td.predicted_class === 'no_leaf' || td.is_cabai_leaf === false || td.is_tomato_leaf === false;
+        var isRejected = isNonLeaf;
+        var severity = isRejected ? 'neutral' : (keparahan.includes('parah') || keparahan.includes('tinggi') ? 'high' : (keparahan.includes('sedang') ? 'medium' : 'low'));
+        var actionLines = [];
+
+        // Rekomendasi hanya dibentuk jika citra terbukti daun cabai/tomat yang valid
+        if (!isRejected) {
+          var solutions = td.solusi || {};
+          var solutionGroups = [
+            ['Penanganan kimia', solutions.penanganan_kimia],
+            ['Penanganan organik', solutions.penanganan_organik],
+            ['Pupuk rekomendasi', solutions.pupuk_rekomendasi],
+            ['Pencegahan', solutions.pencegahan],
+            ['Tips perawatan', solutions.tips_perawatan],
+          ];
+
+          if (td.nama_english) actionLines.push('Nama lain: ' + td.nama_english);
+          if (td.jenis_patogen && td.jenis_patogen !== '-') actionLines.push('Jenis patogen: ' + td.jenis_patogen);
+          if (td.penyebab && td.penyebab !== '-') actionLines.push('Penyebab: ' + td.penyebab);
+          if (td.deskripsi) actionLines.push('Keterangan: ' + td.deskripsi);
+          solutionGroups.forEach(function (group) {
+            if (Array.isArray(group[1]) && group[1].length) {
+              actionLines.push(group[0] + ':\n- ' + group[1].join('\n- '));
+            }
+          });
+          if (Array.isArray(td.top3) && td.top3.length) {
+            actionLines.push('Kemungkinan lain:\n- ' + td.top3.map(function (item) {
+              return (item.nama_penyakit || item.kelas || item.class_raw || 'Kandidat') + ' (' + Number(item.confidence || 0).toFixed(1) + '%)';
+            }).join('\n- '));
+          }
+          if (td.status) actionLines.push('Status model: ' + td.status);
+          if (td.message) actionLines.push(td.message);
+          if (td.disclaimer) actionLines.push('Catatan: ' + td.disclaimer);
+        }
+
+        var mappedData = {
+          plant: isRejected ? 'non_leaf' : (selectedPlant === 'cabai' ? 'chili' : 'tomato'),
+          disease: isRejected ? 'Bukan Daun ' + (selectedPlant === 'cabai' ? 'Cabai' : 'Tomat') : (td.nama_penyakit || td.predicted_class || td.kelas || 'Penyakit tanaman'),
+          confidence: (td.confidence || 0) / 100,
+          severity: severity,
+          symptoms: isRejected ? [] : (td.gejala || []),
+          recommended_action: isRejected ? '' : actionLines.join('\n\n'),
+          rejection_message: isRejected ? (td.message || 'Citra tidak teridentifikasi sebagai daun tanaman cabai. Tidak ada gejala maupun rekomendasi penanganan penyakit yang dapat disajikan.') : '',
+        };
+
+        var evt = new CustomEvent('pd:result', { detail: mappedData, bubbles: true });
+        document.dispatchEvent(evt);
+      })
+      .catch(function (err) {
+        showAPIError(err && err.message ? 'Gagal memproses diagnosis: ' + err.message : 'Tidak bisa terhubung ke server. Periksa koneksi internet.');
+        console.error('pd:error', err);
+        btnAnalisis.disabled = false;
+        btnLabel.textContent = 'Periksa sekarang';
+      });
+  });
+})();
+</script>

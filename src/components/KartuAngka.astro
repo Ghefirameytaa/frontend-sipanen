@@ -1,0 +1,60 @@
+---
+/**
+ * KartuAngka — satu angka besar dengan label, ikon, dan keterangan singkat.
+ *
+ * Dipakai untuk ringkasan. Angka dibuat besar dan tebal karena inilah yang
+ * pertama dicari pembaca; keterangannya diletakkan di bawah, bukan di atas,
+ * agar tidak menghalangi.
+ *
+ * Ikon ditambahkan supaya jenis angkanya dapat dikenali sebelum dibaca —
+ * "naik" dan "turun" punya bentuk yang berbeda, bukan hanya warna yang
+ * berbeda.
+ *
+ * BENTUK
+ * ------
+ * Kotak berlatar dihapus; yang tersisa hanya satu garis rambut di atas tiap
+ * angka. Beberapa KartuAngka yang berjajar kini terbaca sebagai satu deret
+ * angka yang dipisah garis, bukan sebagai tiga kotak yang bersaing. Kotak
+ * ikon di sebelah angka juga dihapus — ikonnya sendiri sudah cukup.
+ */
+import Ikon from './Ikon.astro';
+
+export interface Props {
+  label: string;
+  nilai: string;
+  keterangan?: string;
+  /** Nama ikon pada `Ikon.astro`. */
+  ikon?: string;
+  /** Warna ikon; tidak lagi mengubah latar. */
+  nada?: 'netral' | 'utama' | 'peringatan';
+}
+
+const { label, nilai, keterangan, ikon, nada = 'netral' } = Astro.props;
+
+const garis = {
+  netral: 'border-kertas-garis',
+  utama: 'border-sipanen-600',
+  peringatan: 'border-amber-500',
+}[nada];
+
+const warnaIkon = {
+  netral: 'text-tinta-kedua',
+  utama: 'text-sipanen-800',
+  peringatan: 'text-amber-800',
+}[nada];
+---
+
+<div class:list={['border-t pt-3 space-y-1', garis]} data-animasi>
+  <p class="flex items-center gap-2 text-tinta-kedua">
+    {
+      ikon && (
+        <span class:list={['shrink-0', warnaIkon]}>
+          <Ikon nama={ikon} ukuran={22} />
+        </span>
+      )
+    }
+    <span>{label}</span>
+  </p>
+  <p class="text-3xl font-extrabold tabular-nums leading-tight">{nilai}</p>
+  {keterangan && <p class="text-sm text-tinta-redup">{keterangan}</p>}
+</div>

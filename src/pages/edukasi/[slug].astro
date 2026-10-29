@@ -1,0 +1,200 @@
+---
+/**
+ * /edukasi/[slug] — satu modul edukasi.
+ *
+ * Modul tidak ditulis di dalam berkas ini, melainkan diambil dari backend
+ * supaya tim KKN dapat memperbaiki isinya tanpa mengubah program. Karena itu
+ * halaman ini hanya mengurus tampilan: judul, bagian-bagian, intisari,
+ * peringatan, dan sumber.
+ */
+import MainLayout from '../../layouts/MainLayout.astro';
+import DataState from '../../components/DataState.astro';
+import Ikon from '../../components/Ikon.astro';
+import Lencana from '../../components/Lencana.astro';
+import { getEducationModule, getEducationModules } from '../../lib/api';
+
+const { slug } = Astro.params;
+
+const [hasil, daftar] = await Promise.all([
+  getEducationModule(slug ?? ''),
+  getEducationModules(),
+]);
+
+const modul = hasil.ok ? hasil.data : null;
+
+// Modul yang tidak ada harus menjawab 404, bukan 200 berisi pesan. Tanpa ini,
+// mesin pencari dan pemeriksa tautan menganggap alamat yang salah sebagai
+// halaman yang sah.
+if (!modul) {
+  Astro.response.status = 404;
+}
+
+// Tautan modul berikutnya diambil dari daftar, supaya pembaca dapat
+// melanjutkan tanpa kembali ke halaman daftar.
+const semua = daftar.ok ? daftar.data.modules : [];
+const indeks = modul ? semua.findIndex((m) => m.slug === modul.slug) : -1;
+const berikutnya = indeks >= 0 && indeks + 1 < semua.length ? semua[indeks + 1] : null;
+const sebelumnya = indeks > 0 ? semua[indeks - 1] : null;
+
+// Ikon per kategori. Isi modul tetap teks — memang bahan bacaan; yang
+// diperbaiki keterbacaannya, bukan isinya.
+const KATEGORI: Record<string, { label: string; ikon: string; warna: string }> = {
+  pupuk: { label: 'Pupuk', ikon: 'semprot', warna: 'text-amber-800' },
+  nutrisi: { label: 'Nutrisi tanaman', ikon: 'daun', warna: 'text-sipanen-800' },
+  perawatan: { label: 'Perawatan', ikon: 'cangkul', warna: 'text-stone-800' },
+  air: { label: 'Air dan penyiraman', ikon: 'air', warna: 'text-sky-800' },
+};
+const kategori = modul ? (KATEGORI[modul.category] ?? null) : null;
+
+// Ikon tiap bagian, dipilih dari kata kunci pada judulnya. Bagian yang tidak
+// dikenali tetap tampil dengan ikon netral — bukan disembunyikan.
+const IKON_BAGIAN: Array<{ cocok: RegExp; ikon: string }> = [
+  { cocok: /dosis|hitung|takaran/i, ikon: 'banding' },
+  { cocok: /tanda|gejala|kekurang|kelebihan/i, ikon: 'peringatan' },
+  { cocok: /pupuk|pemupukan|hara|nutrisi/i, ikon: 'semprot' },
+  { cocok: /air|siram|penyiram/i, ikon: 'air' },
+  { cocok: /tanah|lahan|media/i, ikon: 'cangkul' },
+  { cocok: /tanam|bibit|semai/i, ikon: 'bibit' },
+  { cocok: /panen|buah/i, ikon: 'keranjang' },
+];
+
+function ikonBagian(judul: string): string {
+  return IKON_BAGIAN.find((i) => i.cocok.test(judul))?.ikon ?? 'panduan';
+}
+---
+
+<MainLayout title={modul ? modul.title : 'Modul Edukasi'} description={modul?.summary}>
+  {
+    !hasil.ok || !modul ? (
+      <DataState
+        jenis={hasil.ok === false && hasil.error.code === 'tidak_terhubung' ? 'galat' : 'kosong'}
+        judul="Modul tidak ditemukan"
+        pesan={
+          hasil.ok
+            ? 'Modul yang Anda cari tidak ada atau sudah diganti.'
+            : hasil.error.message
+        }
+        saran="Kembali ke daftar panduan untuk memilih modul yang tersedia."
+        tautan={{ href: '/edukasi', label: 'Lihat semua panduan' }}
+      />
+    ) : (
+      <article class="max-w-3xl mx-auto space-y-8">
+        <nav aria-label="Navigasi halaman">
+          <a
+            href="/edukasi"
+            class="inline-flex items-center min-h-sentuh font-semibold text-sipanen-800 underline decoration-sipanen-600 decoration-2 underline-offset-4"
+          >
+            &larr; Semua panduan
+          </a>
+        </nav>
+
+        <header>
+          {
+            kategori && (
+              <p class="flex items-center gap-2 font-semibold text-tinta-redup">
+                <span class:list={['shrink-0', kategori.warna]}>
+                  <Ikon nama={kategori.ikon} ukuran={22} />
+                </span>
+                {kategori.label}
+              </p>
+            )
+          }
+          <h1 class="text-3xl font-extrabold leading-tight mt-1 sm:text-4xl">{modul.title}</h1>
+          <p class="text-tinta-kedua text-lg mt-3">{modul.summary}</p>
+          <p class="flex items-center gap-2 text-tinta-redup mt-3">
+            <Ikon nama="jam" ukuran={20} />
+            Sekitar {modul.reading_minutes} menit baca
+          </p>
+        </header>
+
+        <!-- Intisari ditaruh paling atas supaya pembaca yang tidak menyelesaikan
+             seluruh modul tetap membawa pulang hal yang paling penting. -->
+        {
+          modul.key_points.length > 0 && (
+            <aside class="border-t-2 border-sipanen-600 pt-5">
+              <h2 class="text-xl font-bold mb-3 flex items-center gap-2">
+                <Ikon nama="centang" ukuran={24} />
+                Intisari
+              </h2>
+              <ul class="space-y-3">
+                {modul.key_points.map((p) => (
+                  <li class="flex gap-3">
+                    <span class="text-sipanen-800 shrink-0 mt-0.5">
+                      <Ikon nama="centang" ukuran={22} />
+                    </span>
+                    <span class="text-lg">{p}</span>
+                  </li>
+                ))}
+              </ul>
+            </aside>
+          )
+        }
+
+        {
+          modul.sections.map((s) => (
+            <section class="space-y-3">
+              <h2 class="text-2xl font-bold flex items-center gap-2">
+                <Ikon nama={ikonBagian(s.heading)} ukuran={26} />
+                {s.heading}
+              </h2>
+              {s.body.map((p) => (
+                <p class="text-tinta-kedua text-lg">{p}</p>
+              ))}
+            </section>
+          ))
+        }
+
+        {
+          modul.caution && (
+            <aside class="border-l-4 border-amber-500 pl-4 space-y-3">
+              <h2 class="text-xl font-bold text-amber-900 flex items-center gap-2">
+                <Ikon nama="peringatan" ukuran={24} />
+                Perlu diperhatikan
+              </h2>
+              <Lencana nada="hati" teks="Ada hal yang perlu dihati-hati" ikon="peringatan" />
+              <p class="text-amber-900 text-lg">{modul.caution}</p>
+            </aside>
+          )
+        }
+
+        <!-- Sumber wajib disebut: klaim tanpa asal tidak dapat diperiksa. -->
+        <footer class="border-t border-kertas-garis pt-5 space-y-4">
+          <p class="flex items-start gap-2 text-tinta-redup">
+            <span class="shrink-0 mt-0.5">
+              <Ikon nama="panduan" ukuran={22} />
+            </span>
+            <span>
+              <strong class="text-tinta-utama">Sumber: </strong>
+              {modul.source}
+            </span>
+          </p>
+
+          <nav class="flex flex-wrap gap-3" aria-label="Modul lainnya">
+            {
+              sebelumnya && (
+                <a
+                  href={`/edukasi/${sebelumnya.slug}`}
+                  class="inline-flex items-center gap-2 min-h-sentuh rounded-control border border-kertas-garis px-5 font-semibold transition-colors hover:bg-kertas-lembut"
+                >
+                  <Ikon nama="panah-turun" ukuran={22} kelas="rotate-90" />
+                  {sebelumnya.title}
+                </a>
+              )
+            }
+            {
+              berikutnya && (
+                <a
+                  href={`/edukasi/${berikutnya.slug}`}
+                  class="inline-flex items-center gap-2 min-h-sentuh rounded-control bg-sipanen-700 px-5 font-semibold text-white transition-colors hover:bg-sipanen-800"
+                >
+                  {berikutnya.title}
+                  <Ikon nama="panah-naik" ukuran={22} kelas="rotate-90" />
+                </a>
+              )
+            }
+          </nav>
+        </footer>
+      </article>
+    )
+  }
+</MainLayout>

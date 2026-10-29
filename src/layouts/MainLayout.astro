@@ -1,0 +1,712 @@
+﻿---
+/**
+ * MainLayout — navigasi, tipografi, dan kerangka halaman SiPanen.
+ */
+// Astro 4 mengekspor komponen ini sebagai `ViewTransitions`; pada Astro 5
+// namanya berganti menjadi `ClientRouter`. Yang dipakai di sini adalah nama
+// versi Astro yang terpasang.
+import { ViewTransitions } from 'astro:transitions';
+import '@fontsource-variable/inter';
+import Ikon from '../components/Ikon.astro';
+import Lipatan from '../components/Lipatan.astro';
+
+export interface Props {
+  title: string;
+  description?: string;
+}
+
+const {
+  title,
+  description = 'SiPanen — informasi harga, prediksi, dan jadwal tanam untuk petani Desa Blederan, Kecamatan Mojotengah, Kabupaten Wonosobo.',
+} = Astro.props;
+
+const tautan = [
+  { href: '/', label: 'Beranda', ikon: 'beranda' },
+  { href: '/harga', label: 'Harga', ikon: 'harga' },
+  { href: '/kalender', label: 'Kalender', ikon: 'kalender' },
+  { href: '/scan-penyakit', label: 'Penyakit', ikon: 'scan-frame' },
+  { href: '/edukasi', label: 'Edukasi', ikon: 'panduan' },
+];
+
+const jalur = Astro.url.pathname;
+function aktif(href: string): boolean {
+  if (href === '/') return jalur === '/';
+  if (href === '/harga') {
+    return ['/harga', '/prediksi'].some(
+      (path) => jalur === path || jalur.startsWith(`${path}/`)
+    );
+  }
+  if (href === '/kalender') {
+    return ['/kalender', '/rekomendasi-tanam', '/recommendations'].some(
+      (path) => jalur === path || jalur.startsWith(`${path}/`)
+    );
+  }
+  return jalur === href || jalur.startsWith(`${href}/`);
+}
+---
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#28CB8B" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title} | SiPanen</title>
+    <ViewTransitions />
+  </head>
+
+  <body class="bg-kertas-lembut text-tinta-utama font-sans text-base min-h-screen flex flex-col transition-colors duration-200">
+    <a
+      href="#isi-utama"
+      class="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:left-4 focus:top-4 focus:bg-sipanen-700 focus:text-white focus:px-5 focus:py-3 focus:rounded-lg focus:font-semibold"
+    >
+      Langsung ke isi halaman
+    </a>
+
+    <!-- Kepala halaman -->
+    <header data-site-header class="sticky top-0 z-50 border-b transition-colors duration-200">
+      <div class="mx-auto max-w-[90rem] px-4 sm:px-6 lg:px-8">
+        <div class="flex min-h-12 items-center justify-between gap-2 py-0.5 sm:min-h-14 sm:gap-4 sm:py-1">
+          <a href="/" class="group flex min-w-0 shrink items-center rounded-2xl p-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#64902E]/10 hover:shadow-[0_4px_12px_rgba(38,50,56,0.16)] active:translate-y-0 active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transform-none motion-reduce:transition-none sm:p-1" aria-label="SiPanen, Tumbuh Cerdas, Panen Berkualitas. Kembali ke beranda">
+            <img
+              data-header-logo-light
+              src="/logo-sipanen-green.png"
+              alt="SiPanen — Tumbuh Cerdas, Panen Berkualitas"
+              width="1115"
+              height="592"
+              class="hidden h-auto w-[68px] transition-transform duration-200 group-hover:scale-[1.02] sm:w-[84px] xl:w-[96px]"
+            />
+            <img
+              data-header-logo-dark
+              src="/logo-sipanen-white.png"
+              alt="SiPanen — Tumbuh Cerdas, Panen Berkualitas"
+              width="1115"
+              height="592"
+              class="h-auto w-[68px] transition-transform duration-200 group-hover:scale-[1.02] sm:w-[84px] xl:w-[96px]"
+            />
+          </a>
+
+          <nav aria-label="Menu utama" class="hidden lg:block">
+            <ul class="flex items-center gap-1">
+              {
+                tautan.map((t) => (
+                  <li class="shrink-0">
+                    <a
+                      href={t.href}
+                      aria-current={aktif(t.href) ? 'page' : undefined}
+                      class:list={[
+                        'group flex items-center gap-1.5 min-h-10 border border-transparent px-2 rounded-full text-xs font-semibold shadow-[0_2px_8px_rgba(38,50,56,0.1)] transition-all duration-200 hover:-translate-y-0.5 hover:border-sipanen-300 hover:shadow-[0_5px_14px_rgba(38,50,56,0.2)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sipanen-700 motion-reduce:transform-none motion-reduce:transition-none dark:shadow-[0_2px_8px_rgba(248,249,250,0.08)] dark:hover:border-sipanen-300 dark:hover:bg-[#5A5F4B] dark:hover:text-[#FFFFFF] dark:hover:shadow-[0_0_12px_rgba(248,249,250,0.2)]',
+                        aktif(t.href)
+                          ? 'nav-aktif'
+                          : 'text-[#263238] hover:bg-[#64902E]/10 hover:text-[#263238]',
+                      ]}
+                      data-header-link
+                    >
+                      <span class="shrink-0 transition-transform duration-200 group-hover:scale-110 motion-reduce:transition-none"><Ikon nama={t.ikon} ukuran={16} inline /></span>
+                      <span class="whitespace-nowrap">{t.label}</span>
+                    </a>
+                  </li>
+                ))
+              }
+            </ul>
+          </nav>
+
+          <div class="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <button
+            type="button"
+            data-theme-toggle
+            data-header-control
+            class="group relative inline-flex h-9 w-9 min-h-[2.25rem] min-w-[2.25rem] items-center justify-center rounded-full border border-white/40 text-white transition-all duration-200 before:absolute before:-inset-1 before:content-[''] hover:-translate-y-0.5 hover:border-white hover:bg-white/10 hover:text-white hover:shadow-[0_4px_12px_rgba(38,50,56,0.2)] active:translate-y-0 active:scale-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:transform-none motion-reduce:transition-none dark:border-kertas-garis dark:text-tinta-kedua dark:hover:border-sipanen-300 dark:hover:bg-[#4D4D4D] dark:hover:text-[#F8F9FA] dark:hover:shadow-[0_0_14px_rgba(192,242,131,0.3)]"
+            aria-label="Aktifkan tema gelap"
+            aria-pressed="false"
+            title="Ganti tema"
+          >
+            <Ikon nama="bulan" ukuran={18} kelas="theme-icon theme-icon-light transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110 motion-reduce:transform-none" />
+            <Ikon nama="matahari" ukuran={18} kelas="theme-icon theme-icon-dark hidden transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110 motion-reduce:transform-none" />
+          </button>
+
+          <details class="relative lg:hidden">
+            <summary data-header-control aria-label="Buka menu navigasi" class="group relative flex h-9 w-9 min-h-[2.25rem] min-w-[2.25rem] cursor-pointer list-none items-center justify-center rounded-full border border-white/40 font-semibold text-white transition-all duration-200 before:absolute before:-inset-1 before:content-[''] hover:-translate-y-0.5 hover:border-white hover:bg-white/10 hover:text-white hover:shadow-[0_4px_12px_rgba(38,50,56,0.14)] active:translate-y-0 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:transform-none motion-reduce:transition-none dark:border-kertas-garis dark:text-tinta-utama dark:hover:bg-sipanen-800 dark:hover:text-white dark:hover:shadow-[0_0_12px_rgba(248,249,250,0.16)] [&::-webkit-details-marker]:hidden">
+              <Ikon nama="menu" ukuran={18} />
+            </summary>
+            <nav aria-label="Menu utama" class="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-[min(20rem,calc(100vw-2rem))] origin-top-right rounded-2xl border border-kertas-garis bg-white p-2 shadow-xl transition-transform duration-200 dark:bg-[#4D4D4D] dark:shadow-[0_12px_32px_rgba(248,249,250,0.12)]">
+              <ul class="grid gap-1.5">
+                {
+                  tautan.map((t) => (
+                    <li>
+                      <a
+                        href={t.href}
+                        aria-current={aktif(t.href) ? 'page' : undefined}
+                        class:list={[
+                          'group flex min-h-sentuh items-center gap-3 rounded-full border border-transparent px-3 font-semibold transition-all duration-200 hover:translate-x-1 hover:border-sipanen-300 hover:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sipanen-700 motion-reduce:transform-none motion-reduce:transition-none dark:hover:border-sipanen-300 dark:hover:bg-[#5A5F4B] dark:hover:text-[#FFFFFF] dark:hover:shadow-[0_4px_12px_rgba(248,249,250,0.12)]',
+                          aktif(t.href)
+                            ? 'nav-aktif'
+                            : 'text-tinta-kedua hover:bg-kertas-lembut hover:text-sipanen-900',
+                        ]}
+                      >
+                        <span class="shrink-0 transition-transform duration-200 group-hover:scale-110 motion-reduce:transition-none"><Ikon nama={t.ikon} ukuran={22} inline /></span>
+                        <span>{t.label}</span>
+                      </a>
+                    </li>
+                  ))
+                }
+              </ul>
+            </nav>
+          </details>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main id="isi-utama" class="mx-auto w-full max-w-[90rem] min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-10 lg:px-8 lg:py-8">
+      <slot />
+    </main>
+
+    <footer class="mt-12 bg-[#5A5F4B] text-white">
+      <div class="mx-auto grid max-w-[90rem] items-center gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[1.6fr_0.8fr] lg:px-8 lg:py-10">
+        <div>
+          <img
+            src="/logo-sipanen-white.png"
+            alt="SiPanen — Tumbuh Cerdas, Panen Berkualitas"
+            width="1115"
+            height="592"
+            class="h-auto w-36 sm:w-40"
+          />
+
+          <p class="mt-2 max-w-[42rem] text-sm leading-relaxed text-white/80">
+            Sistem informasi komoditas, diagnostik tanaman, dan kalender agrikultur terintegrasi untuk kemandirian petani desa.
+          </p>
+
+          <div class="mt-7 flex flex-wrap items-center gap-2 text-sm text-white/60">
+            <span>© 2026 Desa Blederan &amp; Tim KKN.</span>
+            <span>All rights reserved.</span>
+            <span class="before:content-['•'] before:mr-2 before:text-white/60">Admin Portal</span>
+          </div>
+        </div>
+
+        <div class="flex justify-start lg:justify-end">
+          <div class="space-y-1 text-left">
+            <p class="text-sm font-medium text-white/80">Output Pengabdian Masyarakat:</p>
+            <p class="text-base font-bold leading-tight text-white">KKN Tematik Mojotengah 2026</p>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <script data-astro-rerun>
+      (function () {
+        var root = document.documentElement;
+        var toggle = document.querySelector('[data-theme-toggle]');
+        var header = document.querySelector('[data-site-header]');
+        var stored = localStorage.getItem('sipanen-theme');
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+        function setTheme(theme) {
+          var dark = theme === 'dark';
+          root.classList.toggle('dark', dark);
+          if (header) {
+            header.setAttribute('data-theme', dark ? 'dark' : 'light');
+          }
+          document.dispatchEvent(new CustomEvent('sipanen:theme-change'));
+          if (toggle) {
+            toggle.setAttribute('aria-label', dark ? 'Aktifkan tema terang' : 'Aktifkan tema gelap');
+            toggle.setAttribute('aria-pressed', String(dark));
+            toggle.querySelector('.theme-icon-light').classList.toggle('hidden', dark);
+            toggle.querySelector('.theme-icon-dark').classList.toggle('hidden', !dark);
+          }
+        }
+
+        setTheme(stored || (prefersDark ? 'dark' : 'light'));
+        if (toggle) {
+          toggle.addEventListener('click', function () {
+            var next = root.classList.contains('dark') ? 'light' : 'dark';
+            localStorage.setItem('sipanen-theme', next);
+            setTheme(next);
+          });
+        }
+      })();
+
+      // Animasi muncul saat elemen masuk layar. Dipakai elemen bertanda
+      // `data-animasi`. Bila pengguna memilih reduce-motion, elemen langsung
+      // ditampilkan tanpa animasi sama sekali.
+      //
+      // `data-astro-rerun` diperlukan karena halaman berpindah lewat View
+      // Transitions: tanpa penanda itu, skrip ini hanya berjalan sekali dan
+      // elemen pada halaman berikutnya tidak pernah muncul — tertinggal
+      // dalam keadaan transparan.
+      //
+      // Ditulis sebagai JavaScript biasa (bukan TypeScript) karena penanda
+      // `data-astro-rerun` membuat Astro memperlakukan skrip ini sebagai
+      // `is:inline`, sehingga tidak diproses lebih lanjut.
+      var kurangiGerak = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      function tampilkan(el) {
+        el.classList.remove('opacity-0', 'translate-y-3');
+      }
+
+      if (kurangiGerak) {
+        document.querySelectorAll('[data-animasi]').forEach(tampilkan);
+      } else {
+        var pengamat = new IntersectionObserver(
+          function (entri) {
+            for (var i = 0; i < entri.length; i++) {
+              if (entri[i].isIntersecting) {
+                tampilkan(entri[i].target);
+                pengamat.unobserve(entri[i].target);
+              }
+            }
+          },
+          { rootMargin: '0px 0px -40px 0px', threshold: 0.05 }
+        );
+        document.querySelectorAll('[data-animasi]').forEach(function (el, i) {
+          el.classList.add('opacity-0', 'translate-y-3');
+          el.style.transitionDelay = Math.min(i * 60, 300) + 'ms';
+          pengamat.observe(el);
+        });
+      }
+    </script>
+
+    <!--
+      Penggambar grafik. Skrip ini diproses dan digabung oleh Astro, sehingga
+      Chart.js ikut terbundel dan tidak bergantung pada CDN. Ia hanya berjalan
+      sekali; pendaftaran ke kejadian `astro:page-load` di dalamnya yang
+      membuat grafik tetap tergambar pada perpindahan halaman berikutnya.
+    -->
+    <script>
+      import '../lib/grafik';
+    </script>
+
+    <style is:global>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Inter Variable", sans-serif;
+      }
+
+      code,
+      kbd,
+      samp,
+      pre {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 1rem;
+        line-height: 1.3;
+      }
+
+      html {
+        color-scheme: light;
+        overflow-x: clip;
+        scroll-behavior: smooth;
+      }
+
+      html.dark {
+        color-scheme: dark;
+      }
+
+      html.dark body {
+        background-color: #263238;
+        color: #F8F9FA;
+      }
+
+      .ikon-svg * {
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.75;
+      }
+
+      html.dark body > header {
+        background-color: #4D4D4D;
+      }
+
+      html.dark body > footer {
+        background-color: #3B463E;
+        color: #F8F9FA;
+        border-top: 1px solid #667266;
+        box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.2);
+      }
+
+      html.dark body > footer .text-amber-800,
+      html.dark body > footer .text-amber-900,
+      html.dark body > footer .text-amber-950 {
+        color: #FBC02D;
+      }
+
+      html.dark body > footer .lipatan-tombol:hover {
+        color: #F8F9FA;
+      }
+
+      html.dark .bg-white,
+      html.dark .bg-kertas {
+        background-color: #4D4D4D;
+      }
+
+      html.dark [data-calendar-card] {
+        background-color: rgb(77 77 77 / 50%);
+        border-color: #89939E;
+        color: #F8F9FA;
+        box-shadow: 0 10px 28px rgba(38, 50, 56, 0.22);
+      }
+
+      html.dark #saran-tanam article {
+        background-color: rgb(77 77 77 / 50%);
+        border-color: #89939E;
+        box-shadow: 0 10px 28px rgba(38, 50, 56, 0.22);
+      }
+
+      html.dark #saran-tanam article:hover {
+        box-shadow: 0 14px 30px rgba(38, 50, 56, 0.34);
+      }
+
+      html.dark .bg-kertas-lembut {
+        background-color: #263238;
+      }
+
+      html.dark #pd-dropzone:hover,
+      html.dark #pd-dropzone.bg-sipanen-50 {
+        background-color: transparent;
+      }
+
+      html.dark .bg-sipanen-50,
+      html.dark .bg-sipanen-100,
+      html.dark .bg-sipanen-200 {
+        background-color: #5A5F4B;
+      }
+
+      html.dark .bg-sipanen-700 {
+        background-color: #125112;
+      }
+
+      html.dark .bg-sipanen-800 {
+        background-color: #5A5F4B;
+      }
+
+      html.dark .bg-sipanen-950 {
+        background-color: #263238;
+      }
+
+      html.dark .bg-amber-50,
+      html.dark .bg-amber-100,
+      html.dark .bg-yellow-50,
+      html.dark .bg-yellow-100,
+      html.dark .bg-green-50,
+      html.dark .bg-green-100,
+      html.dark .bg-lime-50,
+      html.dark .bg-lime-100,
+      html.dark .bg-sky-50,
+      html.dark .bg-sky-100,
+      html.dark .bg-blue-50,
+      html.dark .bg-blue-100,
+      html.dark .bg-cyan-50,
+      html.dark .bg-cyan-100,
+      html.dark .bg-emerald-50,
+      html.dark .bg-emerald-100 {
+        background-color: #5A5F4B;
+      }
+
+      html.dark .bg-red-50,
+      html.dark .bg-red-100,
+      html.dark .bg-rose-50,
+      html.dark .bg-rose-100 {
+        background-color: #4D4D4D;
+      }
+
+      .nav-aktif {
+        background-color: rgb(207 235 115 / 35%);
+        color: #263238;
+      }
+
+      html.dark .nav-aktif {
+        color: #F8F9FA;
+      }
+
+      header[data-site-header] {
+        background-color: #64902E;
+        border-color: #64902E;
+        color: #FFFFFF;
+        box-shadow: 0 2px 12px rgba(38, 50, 56, 0.12);
+      }
+
+      html.dark header[data-site-header] {
+        border-bottom-color: transparent;
+      }
+
+      html.dark [data-page-hero] {
+        background-color: #4D4D4D !important;
+        border: 1px solid #717171;
+        color: #F8F9FA;
+        box-shadow:
+          0 8px 24px rgba(0, 0, 0, 0.42),
+          0 0 0 1px rgba(171, 190, 209, 0.18);
+      }
+
+      html.dark [data-page-hero] > img {
+        z-index: 0;
+        opacity: 0.35;
+      }
+
+      html.dark [data-page-hero-overlay] {
+        z-index: 10;
+        background-color: transparent !important;
+        background-image: linear-gradient(
+          90deg,
+          #4D4D4D 0%,
+          rgb(77 77 77 / 90%) 55%,
+          rgb(77 77 77 / 35%) 100%
+        ) !important;
+        pointer-events: none;
+      }
+
+      html.dark [data-page-hero] > :not(img):not([data-page-hero-overlay]) {
+        position: relative;
+        z-index: 20;
+      }
+
+      html.dark [data-page-hero-badge] {
+        background-color: #ABBED1;
+        color: #263238;
+      }
+
+      html.dark [data-page-hero] h1,
+      html.dark [data-page-hero] p:not([data-page-hero-badge]) {
+        color: #F8F9FA !important;
+      }
+
+      html.dark [data-page-hero-badge] > span:first-child {
+        background-color: #4D4D4D;
+      }
+
+      html.dark [data-page-hero-divider] {
+        position: relative;
+        z-index: 20;
+        border-color: #ABBED1;
+        opacity: 1;
+        filter: none;
+      }
+
+      header[data-site-header] [data-header-logo-dark] {
+        display: block;
+      }
+
+      header[data-site-header] [data-header-logo-light] {
+        display: none;
+      }
+
+      header[data-site-header] [data-header-link],
+      header[data-site-header] [data-header-control] {
+        color: #FFFFFF;
+      }
+
+      header[data-site-header] [data-header-control] {
+        border-color: rgba(255, 255, 255, 0.4);
+      }
+
+      header[data-site-header] > div > div > nav .nav-aktif {
+        background-color: rgba(255, 255, 255, 0.18);
+        color: #FFFFFF;
+      }
+
+      html.dark .text-tinta-utama {
+        color: #F8F9FA;
+      }
+
+      html.dark .text-tinta-kedua {
+        color: #ABBED1;
+      }
+
+      html.dark header .text-tinta-kedua,
+      html.dark header .text-tinta-utama {
+        color: #FFFFFF;
+      }
+
+      html.dark .text-tinta-redup {
+        color: #ABBED1;
+      }
+
+      html.dark .border-kertas-garis {
+        border-color: #717171;
+      }
+
+      html.dark .text-sipanen-900,
+      html.dark .text-sipanen-800,
+      html.dark .text-sipanen-700,
+      html.dark .text-sipanen-600,
+      html.dark .text-sipanen-500,
+      html.dark .text-sipanen-400 {
+        color: #C0F283;
+      }
+
+      html.dark .text-sipanen-950 {
+        color: #F8F9FA;
+      }
+
+      html.dark .text-green-50,
+      html.dark .text-green-100 {
+        color: #EAF2CF;
+      }
+
+      html.dark .text-green-800,
+      html.dark .text-green-900 {
+        color: #C0F283;
+      }
+
+      html.dark .text-green-200,
+      html.dark .text-green-300,
+      html.dark .text-green-400,
+      html.dark .text-green-500,
+      html.dark .text-green-600,
+      html.dark .text-green-700,
+      html.dark .text-lime-400,
+      html.dark .text-lime-500,
+      html.dark .text-lime-600,
+      html.dark .text-lime-700 {
+        color: #C0F283;
+      }
+
+      html.dark .text-lime-200,
+      html.dark .text-lime-300 {
+        color: #CFEB73;
+      }
+
+      html.dark .text-yellow-800,
+      html.dark .text-yellow-900 {
+        color: #FBC02D;
+      }
+
+      html.dark .text-amber-800,
+      html.dark .text-amber-900,
+      html.dark .text-amber-950 {
+        color: #FBC02D;
+      }
+
+      html.dark .text-red-700,
+      html.dark .text-red-800,
+      html.dark .text-red-900 {
+        color: #E53835;
+      }
+
+      html.dark .text-sky-800 {
+        color: #309CF6;
+      }
+
+      html.dark .text-stone-800,
+      html.dark .text-gray-700,
+      html.dark .text-gray-500,
+      html.dark .text-gray-600,
+      html.dark .text-gray-800,
+      html.dark .text-gray-900,
+      html.dark .text-stone-500,
+      html.dark .text-stone-600,
+      html.dark .text-stone-700,
+      html.dark .text-stone-900,
+      html.dark .text-slate-500,
+      html.dark .text-slate-600,
+      html.dark .text-slate-700,
+      html.dark .text-slate-800,
+      html.dark .text-slate-900 {
+        color: #F8F9FA;
+      }
+
+      html.dark input,
+      html.dark select,
+      html.dark textarea {
+        background-color: #4D4D4D;
+        color: #F8F9FA;
+        border-color: #717171;
+      }
+
+      html.dark .shadow-sm,
+      html.dark .shadow-lg,
+      html.dark .shadow-xl {
+        --tw-shadow-color: rgba(38, 50, 56, 0.38);
+      }
+
+      #pd-plant-tomat,
+      #pd-plant-cabai {
+        box-shadow: 0 3px 8px rgba(38, 50, 56, 0.2);
+        transition: box-shadow 180ms ease, transform 180ms ease;
+      }
+
+      #pd-plant-tomat:hover,
+      #pd-plant-cabai:hover {
+        background-color: #CFEB73;
+        box-shadow: 0 8px 18px rgba(38, 50, 56, 0.35);
+        transform: translateY(-2px);
+      }
+
+      html.dark #pd-plant-tomat,
+      html.dark #pd-plant-cabai {
+        box-shadow: 0 3px 8px rgba(38, 50, 56, 0.34);
+      }
+
+      html.dark #pd-plant-tomat:hover,
+      html.dark #pd-plant-cabai:hover {
+        background-color: #5A5F4B;
+        box-shadow: 0 8px 20px rgba(38, 50, 56, 0.58);
+      }
+
+      .rounded-panel,
+      .rounded-card {
+        box-shadow: 0 8px 24px rgba(38, 50, 56, 0.07);
+        transition: box-shadow 200ms ease, transform 200ms ease, border-color 200ms ease;
+      }
+
+      html.dark .rounded-panel,
+      html.dark .rounded-card {
+        box-shadow: 0 10px 28px rgba(38, 50, 56, 0.22);
+      }
+
+      @media (hover: hover) and (pointer: fine) {
+        .rounded-card:hover {
+          box-shadow: 0 14px 30px rgba(38, 50, 56, 0.12);
+        }
+
+        html.dark .rounded-card:hover {
+          box-shadow: 0 14px 30px rgba(38, 50, 56, 0.34);
+        }
+      }
+
+      /* Seluruh transisi dihentikan bila pengguna memintanya. Ini bukan
+         hiasan: animasi yang tidak dapat dimatikan dapat membuat pusing
+         sebagian pengguna lanjut usia. */
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+          scroll-behavior: auto !important;
+        }
+      }
+
+      [data-animasi] {
+        transition:
+          opacity 300ms ease-out,
+          transform 300ms ease-out;
+      }
+
+      ::selection {
+        background-color: theme('colors.sipanen.200');
+        color: theme('colors.sipanen.950');
+      }
+
+      /* Cincin fokus yang jelas dan tebal, agar pengguna yang menavigasi
+         dengan papan ketik selalu tahu di mana posisinya. */
+      :focus-visible {
+        outline: 3px solid theme('colors.sipanen.700');
+        outline-offset: 2px;
+        border-radius: 4px;
+      }
+
+      html,
+      body {
+        scrollbar-width: none;
+      }
+
+      html::-webkit-scrollbar,
+      body::-webkit-scrollbar {
+        display: none;
+      }
+    </style>
+  </body>
+</html>

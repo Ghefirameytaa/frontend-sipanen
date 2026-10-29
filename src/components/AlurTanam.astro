@@ -1,0 +1,87 @@
+---
+/**
+ * AlurTanam — diagram tiga langkah: tanam, tumbuh, panen.
+ *
+ * MENGAPA ADA
+ * -----------
+ * Ini konsep terpenting di seluruh dashboard, dan sebelumnya disampaikan
+ * sebagai paragraf:
+ *
+ *   "Cabai dan tomat baru dapat dipetik tiga sampai empat bulan setelah
+ *    ditanam. Karena itu, menanam komoditas yang harganya tinggi hari ini
+ *    belum tentu menguntungkan..."
+ *
+ * Diagram menyampaikan hal yang sama sekali pandang. Paragrafnya tidak hilang
+ * — ia tetap tersedia di `Lipatan` yang menyertai diagram ini.
+ *
+ * Penanda "harga dilihat di sini" sengaja diletakkan di langkah PANEN, bukan
+ * di langkah TANAM, karena itulah intinya.
+ *
+ * BENTUK
+ * ------
+ * Tiga kotak dan tiga lingkaran penghubung dihapus. Ketiga langkah kini
+ * dipisah garis di atasnya, dan urutannya sudah dibawa oleh daftar bernomor —
+ * panah penghubung hanya mengulang hal yang sudah jelas.
+ */
+import Ikon from './Ikon.astro';
+
+export interface Props {
+  /** Tanggal mulai tanam, sudah diformat. */
+  tanggalTanam?: string;
+  /** Tanggal mulai panen, sudah diformat. */
+  tanggalPanen?: string;
+  hariMin?: number;
+  hariMaks?: number;
+}
+
+const { tanggalTanam, tanggalPanen, hariMin = 90, hariMaks = 120 } = Astro.props;
+
+const langkah = [
+  {
+    ikon: 'bibit',
+    judul: 'Tanam',
+    keterangan: tanggalTanam ?? 'Hari ini',
+    sorot: false,
+  },
+  {
+    ikon: 'jam',
+    judul: 'Tumbuh',
+    keterangan: `${hariMin}–${hariMaks} hari`,
+    sorot: false,
+  },
+  {
+    ikon: 'keranjang',
+    judul: 'Panen',
+    keterangan: tanggalPanen ?? `${hariMin}–${hariMaks} hari kemudian`,
+    sorot: true,
+  },
+];
+---
+
+<ol class="grid sm:grid-cols-3 gap-4">
+  {
+    langkah.map((l) => (
+      <li
+        class:list={[
+          'border-t-2 pt-3',
+          l.sorot ? 'border-sipanen-600' : 'border-kertas-garis',
+        ]}
+      >
+        <p class="flex items-center gap-2 font-bold text-lg">
+          <span class:list={[l.sorot ? 'text-sipanen-700' : 'text-sipanen-800', 'shrink-0']}>
+            <Ikon nama={l.ikon} ukuran={24} />
+          </span>
+          {l.judul}
+        </p>
+        <p class="text-tinta-kedua">{l.keterangan}</p>
+
+        {l.sorot && (
+          <p class="mt-1 flex items-center gap-2 font-bold text-sipanen-900">
+            <Ikon nama="harga" ukuran={20} />
+            Harga dilihat di sini
+          </p>
+        )}
+      </li>
+    ))
+  }
+</ol>

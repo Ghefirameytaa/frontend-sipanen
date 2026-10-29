@@ -1,0 +1,80 @@
+---
+import type { CommodityCalendar } from '../lib/api';
+
+export interface Props {
+  kalender: CommodityCalendar[];
+  tautan: (bulan: number) => string;
+  terpilih: number;
+}
+
+const { kalender, tautan, terpilih } = Astro.props;
+const bulan = kalender.length > 0 ? kalender[0].bulan : [];
+---
+
+<div class="rounded-2xl border border-kertas-garis bg-kertas-lembut p-2 dark:bg-[#4D4D4D] dark:ring-1 dark:ring-[#89939E]">
+  <ol class="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-12">
+    {bulan.map((b) => {
+      const saran = kalender.filter((item) =>
+        item.bulan_tanam_disarankan.includes(b.bulan),
+      );
+      const adaCabai = saran.some((item) => item.commodity_code.includes('cabai'));
+      const adaTomat = saran.some((item) => item.commodity_code.includes('tomat'));
+      const dipilih = b.bulan === terpilih;
+      const kelas = dipilih
+        ? 'border-[#CFEB73] bg-[#CFEB73] text-[#263238] hover:bg-[#C0F283]'
+        : `border-kertas-garis bg-white text-tinta-utama dark:bg-[#263238] ${
+            b.kini ? 'ring-1 ring-inset ring-[#64902E]' : ''
+          }`;
+
+      return (
+        <li class="min-w-0">
+          <a
+            href={tautan(b.bulan)}
+            aria-current={dipilih && 'true'}
+            aria-label={b.nama_bulan + ': ' + (saran.length
+              ? saran.map((item) => item.commodity_name).join(', ')
+              : 'belum ada tanaman yang disarankan')}
+            class:list={[
+              'group relative flex min-h-[5.75rem] w-full flex-col items-center justify-center gap-1 rounded-xl border px-0.5 py-1.5 text-center shadow-[0_4px_8px_rgba(171,190,209,0.4)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-[#64902E] hover:shadow-[0_8px_16px_rgba(171,190,209,0.4)] dark:hover:bg-[#5A5F4B] dark:hover:shadow-[0_8px_16px_rgba(171,190,209,0.3)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sipanen-700 active:scale-95 motion-reduce:transform-none motion-reduce:transition-none',
+              dipilih ? '' : 'hover:bg-[#EAF2CF]',
+              kelas,
+            ]}
+          >
+            <span class:list={['text-xs font-bold leading-tight transition-colors sm:text-sm', !dipilih && 'group-hover:text-sipanen-800 dark:group-hover:text-lime-200']}>
+              {b.nama_bulan.slice(0, 3)}
+            </span>
+            {b.kini && (
+              <span class="rounded-full bg-sipanen-100 px-1 py-0.5 text-[0.625rem] font-bold leading-tight text-sipanen-800">
+                sekarang
+              </span>
+            )}
+            <span class="flex min-h-6 items-center justify-center gap-0.5">
+              {adaCabai && (
+                <img
+                  src="/komoditas/cabai-kalender.svg"
+                  alt=""
+                  aria-hidden="true"
+                  class="h-4 w-4 object-contain transition duration-200 group-hover:scale-110 group-hover:drop-shadow-[0_2px_4px_rgba(38,50,56,0.45)] dark:group-hover:drop-shadow-[0_0_6px_rgba(248,249,250,0.8)] sm:h-6 sm:w-6"
+                />
+              )}
+              {adaTomat && (
+                <img
+                  src="/komoditas/tomat-kalender.png"
+                  alt=""
+                  aria-hidden="true"
+                  class="h-4 w-4 object-contain transition duration-200 group-hover:scale-110 group-hover:drop-shadow-[0_2px_4px_rgba(38,50,56,0.45)] dark:group-hover:drop-shadow-[0_0_6px_rgba(248,249,250,0.8)] sm:h-6 sm:w-6"
+                />
+              )}
+              {!adaCabai && !adaTomat && <span class="text-lg text-tinta-redup">—</span>}
+            </span>
+            {saran.length > 0 && (
+              <span class="rounded-full bg-sipanen-100/80 px-1.5 text-[0.625rem] font-semibold leading-tight text-sipanen-900 dark:bg-sipanen-800 dark:text-green-50">
+                disarankan
+              </span>
+            )}
+          </a>
+        </li>
+      );
+    })}
+  </ol>
+</div>

@@ -1,0 +1,140 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+import CatatanPanel from '../components/CatatanPanel.astro';
+import DataState from '../components/DataState.astro';
+import Ikon from '../components/Ikon.astro';
+import { getEducationModules } from '../lib/api';
+
+const kategoriDipilih = Astro.url.searchParams.get('kategori') ?? '';
+const hasil = await getEducationModules(kategoriDipilih || undefined);
+const modul = hasil.ok ? hasil.data.modules : [];
+const catatanEdukasi = hasil.ok ? hasil.meta.notes ?? [] : [];
+
+const kategoriTampilan: Record<string, { label: string; ikon: string }> = {
+  pupuk: { label: 'Pupuk', ikon: 'semprot' },
+  nutrisi: { label: 'Nutrisi tanaman', ikon: 'daun' },
+  perawatan: { label: 'Perawatan', ikon: 'cangkul' },
+  air: { label: 'Air dan penyiraman', ikon: 'air' },
+};
+
+function kategori(slug: string) {
+  return kategoriTampilan[slug] ?? { label: slug, ikon: 'panduan' };
+}
+
+const fotoKategori: Record<string, string> = {
+  pupuk: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=900&q=80',
+  nutrisi: 'https://images.unsplash.com/photo-1592982537447-7440770cbfc9?auto=format&fit=crop&w=900&q=80',
+  perawatan: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=900&q=80',
+  air: 'https://images.unsplash.com/photo-1530053969600-caed2596d242?auto=format&fit=crop&w=900&q=80',
+};
+---
+
+<MainLayout
+  title="Edukasi Tanaman"
+  description="Artikel praktis tentang pemupukan, nutrisi, perawatan, dan penyiraman tanaman."
+>
+  <div class="space-y-8">
+    <header data-page-hero class="relative isolate overflow-hidden rounded-panel bg-[#64902E] px-4 py-6 text-white shadow-lg sm:px-9 sm:py-10">
+      <img src="https://images.unsplash.com/photo-1499529112087-3cb3b73cec95?auto=format&fit=crop&w=1400&q=85" alt="Hamparan pertanian hijau" class="absolute inset-0 z-0 h-full w-full object-cover opacity-35" width="1400" height="800" />
+      <div data-page-hero-overlay class="absolute inset-0 z-10 bg-gradient-to-r from-[#64902E] via-[#64902E]/90 to-[#64902E]/35" aria-hidden="true"></div>
+      <div class="relative z-20 flex flex-wrap items-end justify-between gap-6">
+        <div class="max-w-3xl">
+          <p data-page-hero-badge class="mb-3 inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#EAF2CF] px-2.5 py-1.5 text-[10px] font-bold uppercase leading-tight tracking-[0.04em] text-[#263238] sm:gap-2 sm:px-3 sm:text-sm sm:tracking-wide">
+            <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#64902E]" aria-hidden="true"></span>
+            <span class="min-w-0">Perpustakaan praktik budidaya</span>
+          </p>
+          <h1 class="font-display text-3xl font-semibold leading-tight sm:text-4xl">Edukasi tanaman</h1>
+          <p class="mt-4 text-base text-green-50 sm:text-lg">Panduan ringkas untuk membantu keputusan harian di kebun, dari nutrisi sampai pengelolaan air.</p>
+        </div>
+        {hasil.ok && <p data-page-hero-divider class="relative border-l border-white/50 pl-4 text-green-50"><strong class="block text-2xl text-white">{hasil.data.modules.length}</strong>artikel tersedia</p>}
+      </div>
+    </header>
+
+    {!hasil.ok ? (
+      <DataState
+        jenis={hasil.error.code === 'tidak_terhubung' ? 'galat' : 'kosong'}
+        judul="Artikel edukasi belum dapat dimuat"
+        pesan={hasil.error.message}
+        saran="Periksa sambungan ke server data, lalu coba lagi."
+      />
+    ) : (
+      <>
+        <nav aria-label="Filter kategori edukasi" class="flex flex-wrap gap-2">
+          <a
+            href="/edukasi"
+            aria-current={!kategoriDipilih ? 'page' : undefined}
+            class:list={[
+              'inline-flex min-h-sentuh items-center rounded-full border px-4 font-semibold',
+              !kategoriDipilih
+                ? 'border-[#CFEB73] bg-[#CFEB73] text-[#263238]'
+                : 'border-kertas-garis bg-white text-tinta-kedua hover:border-sipanen-600',
+            ]}
+          >
+            Semua artikel
+          </a>
+          {hasil.data.categories.map((slug) => {
+            const item = kategori(slug);
+            return (
+              <a
+                href={`/edukasi?kategori=${encodeURIComponent(slug)}`}
+                aria-current={kategoriDipilih === slug ? 'page' : undefined}
+                class:list={[
+                  'inline-flex min-h-sentuh items-center gap-2 rounded-full border px-4 font-semibold',
+                  kategoriDipilih === slug
+                    ? 'border-[#CFEB73] bg-[#CFEB73] text-[#263238]'
+                    : 'border-kertas-garis bg-white text-tinta-kedua hover:border-sipanen-600',
+                ]}
+              >
+                <Ikon nama={item.ikon} ukuran={19} />
+                {item.label}
+              </a>
+            );
+          })}
+        </nav>
+
+        {modul.length === 0 ? (
+          <DataState
+            jenis="kosong"
+            judul="Belum ada artikel pada kategori ini"
+            pesan="Pilih kategori lain atau tampilkan semua artikel."
+            tautan={{ href: '/edukasi', label: 'Tampilkan semua artikel' }}
+          />
+        ) : (
+          <section aria-label="Daftar artikel edukasi">
+            <ol class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {modul.map((m) => {
+                const item = kategori(m.category);
+                return (
+                  <li>
+                    <a
+                      href={`/edukasi/${m.slug}`}
+                      class="group flex h-full flex-col overflow-hidden rounded-card border border-kertas-garis bg-white transition duration-200 hover:-translate-y-1 hover:border-sipanen-600 hover:shadow-lg"
+                      data-animasi
+                    >
+                      <div class="relative h-40 overflow-hidden bg-sipanen-100">
+                        <img src={fotoKategori[m.category] ?? fotoKategori.perawatan} alt={`Ilustrasi ${item.label.toLowerCase()}`} loading="lazy" width="900" height="600" class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
+                        <span class="absolute bottom-3 left-3 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-sm font-semibold text-sipanen-900">
+                          <Ikon nama={item.ikon} ukuran={19} />
+                          {item.label}
+                        </span>
+                      </div>
+                      <div class="flex flex-1 flex-col p-5">
+                        <span class="text-xl font-bold leading-tight">{m.title}</span>
+                        <span class="mt-2 flex-1 text-tinta-kedua">{m.summary}</span>
+                        <span class="mt-5 inline-flex items-center gap-2 border-t border-kertas-garis pt-3 text-sm text-tinta-redup">
+                          <Ikon nama="jam" ukuran={19} />{m.reading_minutes} menit baca
+                        </span>
+                      </div>
+                    </a>
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+        )}
+
+        {catatanEdukasi.length > 0 && <CatatanPanel catatan={catatanEdukasi} />}
+      </>
+    )}
+  </div>
+</MainLayout>

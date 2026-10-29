@@ -1,0 +1,86 @@
+---
+/**
+ * DataSourceBadge — penanda asal sebuah angka.
+ *
+ * Ketentuan proyek melarang data simulasi tampil seolah-olah data aktual, dan
+ * melarang hasil prediksi disajikan sebagai kepastian. Lencana ini adalah cara
+ * ketentuan itu terlihat oleh pengguna: setiap angka pada dashboard wajib
+ * punya salah satunya.
+ *
+ * Dibuat sebagai komponen agar tidak ada halaman yang "lupa" menandai.
+ *
+ * BENTUK
+ * ------
+ * Ini satu-satunya lencana yang latarnya sengaja TIDAK dihilangkan seluruhnya.
+ * Ia sering menjadi satu-satunya pembeda antara angka nyata dan angka contoh,
+ * jadi ia harus terlihat tanpa dicari. Yang dikurangi hanya ketebalan garisnya
+ * — dari dua piksel menjadi satu — supaya tidak lebih berat dari isi halaman.
+ */
+export interface Props {
+  kind: 'aktual' | 'simulasi' | 'prediksi' | 'tidak_diketahui';
+  /** Keterangan tambahan, mis. nama sumber data. */
+  sumber?: string;
+  /** Ukuran lencana. `kecil` dipakai di dalam tabel. */
+  ukuran?: 'normal' | 'kecil';
+  /** Pilih warna hijau yang sama dengan lencana Realtime Wonosobo. */
+  warna?: 'bawaan' | 'realtime';
+}
+
+const { kind, sumber, ukuran = 'normal', warna = 'bawaan' } = Astro.props;
+
+// Warna dipilih agar teks tetap melewati ambang kontras 7:1 terhadap latarnya,
+// karena lencana ini sering menjadi satu-satunya pembeda antara angka nyata
+// dan angka contoh.
+const gaya: Record<string, { kelas: string; label: string; arti: string }> = {
+  aktual: {
+    kelas: 'bg-[#E9F2CD] text-emerald-800 border-transparent',
+    label: 'Data aktual',
+    arti: 'Angka ini berasal dari pencatatan nyata.',
+  },
+  simulasi: {
+    kelas: 'bg-amber-100 text-amber-900 border-amber-600',
+    label: 'Data simulasi',
+    arti: 'Angka ini dibangkitkan untuk demonstrasi, bukan hasil pencatatan pasar.',
+  },
+  prediksi: {
+    kelas: 'bg-sky-100 text-sky-900 border-sky-600',
+    label: 'Perkiraan model',
+    arti: 'Angka ini hasil perhitungan model, bukan kejadian yang sudah pasti.',
+  },
+  tidak_diketahui: {
+    kelas: 'bg-gray-100 text-gray-800 border-gray-500',
+    label: 'Asal belum jelas',
+    arti: 'Asal angka ini belum dapat dipastikan.',
+  },
+};
+
+const g = gaya[kind] ?? gaya.tidak_diketahui;
+const kelasWarna = (kind === 'simulasi' || kind === 'aktual') && warna === 'realtime'
+  ? 'bg-[#E9F2CD] text-emerald-800 border-transparent'
+  : g.kelas;
+// Ukuran normal diperbesar: lencana ini sering menjadi satu-satunya pembeda
+// antara angka nyata dan angka contoh, jadi ia harus terbaca tanpa didekati.
+const ukuranKelas = ukuran === 'kecil' ? 'shrink-0 whitespace-nowrap text-[11px] px-1.5 py-0.5 gap-1' : 'text-base px-3.5 py-1.5 gap-1.5';
+---
+
+<span
+  class:list={['inline-flex max-w-full items-center rounded-full border font-semibold leading-snug', kelasWarna, ukuranKelas]}
+  title={sumber ? `${g.arti} Sumber: ${sumber}` : g.arti}
+  data-simulasi-realtime={kind === 'simulasi' && warna === 'realtime' ? 'true' : undefined}
+>
+  <span aria-hidden="true" class:list={['shrink-0', kind === 'simulasi' && warna === 'realtime' && 'hidden']}>
+    {kind === 'aktual' ? '●' : kind === 'simulasi' ? '◆' : kind === 'prediksi' ? '◐' : '○'}
+  </span>
+  <span>{g.label}{sumber ? ` · ${sumber}` : ''}</span>
+</span>
+
+<style>
+  [data-simulasi-realtime='true']::before {
+    content: '';
+    width: 0.5rem;
+    height: 0.5rem;
+    flex: 0 0 auto;
+    border-radius: 9999px;
+    background: currentColor;
+  }
+</style>

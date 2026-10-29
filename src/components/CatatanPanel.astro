@@ -1,0 +1,47 @@
+---
+/**
+ * CatatanPanel — menampilkan `meta.notes` dari backend.
+ *
+ * Backend memakai kolom ini untuk memberi tahu keterbatasan data apa adanya:
+ * komoditas yang belum punya prediksi, harga yang belum punya pembanding,
+ * data cuaca yang masih simulasi. Catatan seperti ini mudah hilang kalau
+ * setiap halaman menyusun tampilannya sendiri, dan menghilangkannya membuat
+ * dashboard tampak lebih lengkap daripada kenyataannya.
+ *
+ * Panel ini SENGAJA tidak dipindahkan ke dalam `Lipatan`: catatan dari backend
+ * umumnya satu baris, dan isinya justru hal yang wajib diketahui — komoditas
+ * yang belum punya prediksi, harga yang belum punya pembanding, cuaca yang
+ * masih simulasi. Yang panjang dipindahkan; yang wajib tetap tampil.
+ *
+ * BENTUK
+ * ------
+ * Latar kuning penuh diganti satu garis tebal di sisi kiri. Fungsinya sama —
+ * menandai "bagian ini bukan kabar baik" — tetapi tanpa menambahkan satu lagi
+ * bidang berwarna ke halaman.
+ */
+import Ikon from './Ikon.astro';
+
+export interface Props {
+  catatan: string[];
+  judul?: string;
+}
+
+const { catatan, judul = 'Yang perlu diketahui' } = Astro.props;
+const ada = Array.isArray(catatan) && catatan.length > 0;
+---
+
+{
+  ada && (
+    <section class="border-l-4 border-amber-500 pl-4 space-y-2" aria-label={judul}>
+      <h2 class="text-xl font-bold text-amber-900 flex items-center gap-2">
+        <Ikon nama="peringatan" ukuran={22} />
+        {judul}
+      </h2>
+      <ul class="space-y-1.5 text-amber-900">
+        {catatan.map((n) => (
+          <li>{n}</li>
+        ))}
+      </ul>
+    </section>
+  )
+}

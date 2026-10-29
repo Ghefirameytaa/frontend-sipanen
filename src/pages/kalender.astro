@@ -1,0 +1,88 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+import DataState from '../components/DataState.astro';
+import { getCommodities, getPlantingSchedule, getPlantingPriceForecast, getFailureRisk, rupiah } from '../lib/api';
+import { wilayahAktif } from '../lib/wilayah';
+
+const wilayah = await wilayahAktif();
+const komoditasResult = wilayah.ok ? await getCommodities(wilayah.data.id) : null;
+const komoditas = komoditasResult?.ok ? komoditasResult.data.filter((item) => item.is_active) : [];
+const params = Astro.url.searchParams;
+const selected = params.get('komoditas') ?? komoditas[0]?.name ?? 'Cabai Rawit Merah';
+const luasInput = Number(params.get('luas') ?? 100);
+const luas = Number.isFinite(luasInput) ? Math.max(1, Math.min(100000, Math.round(luasInput))) : 100;
+const phase = params.get('fase') ?? 'Pembentukan Buah';
+const load = params.has('lihat') && wilayah.ok
+  ? await Promise.all([
+      getPlantingSchedule({ komoditas: selected, luas_ubin: luas }),
+      getPlantingPriceForecast(selected),
+      getFailureRisk({ komoditas: selected, fase_tanaman: phase, luas_ubin: luas, blok_wilayah: wilayah.data.name }),
+    ])
+  : null;
+const schedule = load?.[0]?.ok ? load[0].data : null;
+const prices = load?.[1]?.ok ? load[1].data : null;
+const risk = load?.[2]?.ok ? load[2].data : null;
+const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+const format = (n: number) => new Intl.NumberFormat('id-ID').format(n);
+---
+
+<MainLayout title="Kalender Tanam" description="Rencana tanam, proyeksi hasil, harga, dan risiko tanaman di wilayah Anda.">
+  <div class="space-y-8">
+    <header data-page-hero class="relative isolate min-h-60 overflow-hidden rounded-panel bg-[#64902E] px-5 py-8 text-white shadow-lg sm:px-9 sm:py-10">
+      <img src="/images/kalender-tanam.jpg" alt="Petani menanam padi di sawah" class="absolute inset-0 z-0 h-full w-full object-cover object-center opacity-35" width="1200" height="800" />
+      <div data-page-hero-overlay class="absolute inset-0 z-10 bg-gradient-to-r from-[#64902E] via-[#64902E]/90 to-[#64902E]/35" aria-hidden="true"></div>
+      <div class="relative z-20">
+        <p data-page-hero-badge class="mb-3 inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#EAF2CF] px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-[#263238]">
+          <span class="h-2 w-2 shrink-0 rounded-full bg-[#64902E]" aria-hidden="true"></span>
+          <span>Perencanaan musim tanam · {wilayah.ok ? wilayah.data.name : 'SiPanen'}</span>
+        </p>
+        <h1 class="font-display text-3xl font-bold sm:text-4xl">Tanam di waktu yang tepat</h1>
+        <p class="mt-3 max-w-2xl text-sipanen-50">Bandingkan peluang tanam 12 bulan, perkiraan laba, harga panen, dan risiko cuaca untuk komoditas pilihan.</p>
+        <p class="mt-4 inline-flex rounded-full border border-white/70 bg-[#263238]/10 px-2.5 py-1 text-[11px] font-medium leading-tight text-white backdrop-blur-md">Data rekomendasi AI berstatus simulasi · gunakan sebagai bahan pertimbangan</p>
+      </div>
+    </header>
+
+    {!wilayah.ok ? <DataState jenis="galat" pesan={wilayah.error.message} /> : komoditas.length === 0 ? <DataState jenis="kosong" pesan="Data komoditas belum tersedia. Muat ulang setelah backend siap." /> : (
+      <>
+        <form method="GET" class="grid gap-4 rounded-2xl border border-kertas-garis bg-white p-4 shadow-sm sm:grid-cols-[1fr_180px_auto] sm:items-end sm:p-6">
+          <label class="grid gap-2 text-sm font-semibold">Pilih komoditas
+            <select name="komoditas" class="min-h-12 rounded-xl border border-kertas-garis bg-white px-3 text-base">
+              {komoditas.map((item) => <option value={item.name} selected={item.name === selected}>{item.name}</option>)}
+            </select>
+          </label>
+          <label class="grid gap-2 text-sm font-semibold">Luas lahan (ubin)
+            <input name="luas" type="number" min="1" max="100000" value={luas} class="min-h-12 rounded-xl border border-kertas-garis px-3 text-base" />
+          </label>
+          <button name="lihat" value="1" class="min-h-12 rounded-xl bg-sipanen-600 px-6 font-bold text-white transition hover:bg-sipanen-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sipanen-700">Lihat rekomendasi</button>
+        </form>
+
+        {load && !schedule ? <DataState jenis="galat" pesan={load[0].ok ? 'Jadwal tanam belum tersedia.' : load[0].error.message} saran="Pastikan layanan kalender tanam aktif, lalu coba lagi." /> : null}
+        {schedule && <>
+          <section class="space-y-5 rounded-2xl border border-kertas-garis bg-white p-4 shadow-sm sm:p-6" aria-labelledby="jadwal-title">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div><p class="text-sm font-semibold text-sipanen-600">REKOMENDASI 12 BULAN</p><h2 id="jadwal-title" class="mt-1 font-display text-2xl font-bold">Peluang tanam {schedule.komoditas}</h2></div>
+              <span class="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-900">Simulasi AI</span>
+            </div>
+            <div class="rounded-xl bg-sipanen-50 p-4"><p class="text-sm font-semibold text-sipanen-700">Bulan emas terbaik</p><p class="mt-1 text-xl font-bold">{schedule.bulan_emas_terbaik || 'Belum tersedia'}</p><p class="mt-1 text-sm text-tinta-kedua">Estimasi untuk {format(schedule.luas_ubin)} ubin · 1 ubin setara 14 m²</p></div>
+            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {schedule.rekomendasi_12_bulan.map((item) => <article class="rounded-xl border border-kertas-garis p-4 transition hover:border-sipanen-600 hover:shadow-md">
+                <div class="flex items-center justify-between gap-2"><h3 class="font-bold">{item.nama_bulan || months[item.bulan_tanam - 1]}</h3><span class="rounded-full bg-sipanen-100 px-2.5 py-1 text-xs font-bold text-sipanen-700">Skor {item.skor_kelayakan}/100</span></div>
+                <p class="mt-2 text-sm font-semibold text-sipanen-600">{item.kategori}</p><p class="mt-3 text-sm">Perkiraan panen: <strong>{item.perkiraan_bulan_panen}</strong></p>
+                <div class="mt-3 grid grid-cols-2 gap-2 text-sm"><p class="rounded-lg bg-kertas-lembut p-2">Risiko<strong class="block">{item.risiko_gagal_panen_persen}%</strong></p><p class="rounded-lg bg-kertas-lembut p-2">Estimasi laba<strong class="block">{rupiah(item.estimasi_laba_bersih_rp)}</strong></p></div>
+                <details class="mt-3 text-sm"><summary class="cursor-pointer font-semibold text-sipanen-700">Lihat alasan rekomendasi</summary><p class="mt-2">Cuaca: {item.alasan_cuaca || 'Tidak ada rincian.'}</p><p class="mt-1">Harga: {item.alasan_harga || 'Tidak ada rincian.'}</p></details>
+              </article>)}
+            </div>
+          </section>
+
+          <section class="grid gap-5 lg:grid-cols-2">
+            <article class="rounded-2xl border border-kertas-garis bg-white p-5 shadow-sm sm:p-6"><p class="text-sm font-semibold text-sipanen-600">PROYEKSI PASAR</p><h2 class="mt-1 text-xl font-bold">Harga {prices?.komoditas ?? selected}</h2>
+              {prices ? <><dl class="mt-4 grid grid-cols-2 gap-3"><div class="rounded-xl bg-kertas-lembut p-3"><dt class="text-sm text-tinta-kedua">Harga saat ini</dt><dd class="mt-1 font-bold">{rupiah(prices.harga_pasar_wonosobo_sekarang_rp)}</dd></div><div class="rounded-xl bg-sipanen-50 p-3"><dt class="text-sm text-tinta-kedua">Proyeksi puncak panen</dt><dd class="mt-1 font-bold">{rupiah(prices.proyeksi_harga_puncak_panen_rp)}</dd></div><div class="rounded-xl bg-kertas-lembut p-3"><dt class="text-sm text-tinta-kedua">Rekor harga terendah</dt><dd class="mt-1 font-bold">{rupiah(prices.rekor_harga_terendah_rp)}</dd></div><div class="rounded-xl bg-kertas-lembut p-3"><dt class="text-sm text-tinta-kedua">Arah tren</dt><dd class="mt-1 font-bold">{prices.arah_tren}</dd></div></dl><p class="mt-3 text-sm text-tinta-kedua">Pasar rujukan: {prices.pasar_rujukan.join(', ') || 'Tidak tersedia'} · proyeksi simulasi.</p></> : <p class="mt-3 text-sm text-tinta-kedua">{load?.[1].ok === false ? load[1].error.message : 'Pilih “Lihat rekomendasi” untuk memuat proyeksi.'}</p>}</article>
+            <article class="rounded-2xl border border-kertas-garis bg-white p-5 shadow-sm sm:p-6"><p class="text-sm font-semibold text-sipanen-600">PEMANTAUAN TANAMAN</p><h2 class="mt-1 text-xl font-bold">Risiko gagal panen 6 hari</h2>
+              {risk ? <><p class="mt-3">Fase: <strong>{risk.fase_tanaman}</strong> · Risiko rata-rata <strong>{risk.rata_rata_risiko_persen}%</strong></p><p class="mt-1 text-sm">Hari paling kritis: <strong>{risk.hari_paling_kritis}</strong></p><ul class="mt-4 space-y-2">{risk.hasil_harian.map((day) => <li class="flex flex-wrap justify-between gap-2 rounded-lg bg-kertas-lembut p-3 text-sm"><span><strong>{day.tanggal}</strong> · {day.ancaman_utama} · {day.klasifikasi_bmkg}</span><span class="font-bold">{day.level_risiko} · {day.probabilitas_gagal_panen_persen}%</span><span class="w-full text-tinta-kedua">{day.tindakan_darurat}</span></li>)}</ul>{risk.rekomendasi_penyuluh_ppl.length > 0 && <p class="mt-3 text-sm">Saran penyuluh: {risk.rekomendasi_penyuluh_ppl.join(' · ')}</p>}<p class="mt-3 text-xs text-tinta-kedua">Hasil risiko berbasis prakiraan bawaan saat data harian belum dikirim. Simulasi, bukan diagnosis lapangan.</p></> : <p class="mt-3 text-sm text-tinta-kedua">{load?.[2].ok === false ? load[2].error.message : 'Pilih “Lihat rekomendasi” untuk memuat pemantauan.'}</p>}
+            </article>
+          </section>
+        </>}
+      </>
+    )}
+  </div>
+</MainLayout>

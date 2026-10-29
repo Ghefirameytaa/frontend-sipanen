@@ -1,0 +1,81 @@
+---
+/**
+ * Lipatan — pembungkus teks penjelasan panjang.
+ *
+ * MENGAPA ADA
+ * -----------
+ * Halaman-halaman dashboard dipenuhi paragraf penjelasan. Bagi pembaca lanjut
+ * usia, paragraf panjang yang tampil lebih dulu justru membuat berhenti
+ * membaca sebelum sampai ke angkanya.
+ *
+ * `Lipatan` memindahkan penjelasan itu ke balik satu tombol, sehingga angka dan
+ * gambar yang tampil lebih dulu. Isinya TIDAK dihapus — pembaca yang ingin tahu
+ * tetap dapat membukanya, dan pendamping yang ditanya perangkat desa tetap
+ * punya jawabannya.
+ *
+ * Memakai `<details>` bawaan peramban, bukan JavaScript. Alasannya sama dengan
+ * alasan navigasi memakai tautan biasa: ia tetap bekerja walau skrip gagal
+ * dimuat, dan pembaca layar sudah mengenalinya.
+ *
+ * BENTUK
+ * ------
+ * Kotak berlatar dihapus. Yang tersisa hanya satu garis rambut di atas judul —
+ * cukup untuk memisahkannya dari isi di atasnya, tidak cukup untuk menambah
+ * satu lagi persegi panjang ke halaman yang sudah penuh kotak.
+ */
+import Ikon from './Ikon.astro';
+
+export interface Props {
+  judul: string;
+  ikon?: string;
+  /** `peringatan` dipakai untuk lipatan yang isinya keberatan/risiko. */
+  nada?: 'netral' | 'peringatan';
+}
+
+const { judul, ikon = 'tanya', nada = 'netral' } = Astro.props;
+
+const garis = nada === 'peringatan' ? 'border-amber-400' : 'border-kertas-garis';
+const warnaIkon = nada === 'peringatan' ? 'text-amber-800' : 'text-sipanen-800';
+---
+
+<details class:list={['lipatan border-t transition-colors duration-200 hover:border-sipanen-300 focus-within:border-sipanen-300 dark:hover:border-sipanen-200 dark:focus-within:border-sipanen-200', garis]}>
+  <summary
+    class="lipatan-tombol -mx-3 flex min-h-sentuh cursor-pointer select-none items-center gap-3 rounded-lg px-3 py-3 transition-colors duration-200 hover:bg-[#ABBED1]/40 hover:text-sipanen-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sipanen-700 dark:hover:bg-[#ABBED1]/40 motion-reduce:transition-none"
+  >
+    <span class:list={[warnaIkon, 'shrink-0']}>
+      <Ikon nama={ikon} ukuran={22} />
+    </span>
+    <span class="flex-1 font-bold">{judul}</span>
+    <span class="lipatan-panah shrink-0" aria-hidden="true">
+      <Ikon nama="panah-turun" ukuran={20} />
+    </span>
+  </summary>
+  <div class="pb-5 pl-8 space-y-3">
+    <slot />
+  </div>
+</details>
+
+<style>
+  /* Panah menghadap bawah saat tertutup dan berputar ke atas saat terbuka —
+     penanda arah yang dapat dibaca tanpa membaca tulisannya. */
+  .lipatan[open] .lipatan-panah {
+    transform: rotate(180deg);
+  }
+  .lipatan-panah {
+    transition: transform 200ms ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lipatan-panah {
+      transition: none;
+    }
+  }
+
+  /* Penanda bawaan peramban dihilangkan karena sudah diganti panah sendiri. */
+  .lipatan-tombol {
+    list-style: none;
+  }
+  .lipatan-tombol::-webkit-details-marker {
+    display: none;
+  }
+</style>

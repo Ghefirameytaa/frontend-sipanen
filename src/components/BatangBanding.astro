@@ -1,0 +1,77 @@
+---
+/**
+ * BatangBanding — dua nilai dibandingkan sebagai batang yang panjangnya
+ * sebanding.
+ *
+ * MENGAPA ADA
+ * -----------
+ * "Naik 17% dibanding harga hari ini" adalah kalimat yang harus dibaca dan
+ * dibayangkan. Dua batang berdampingan menyampaikan hal yang sama sekali
+ * pandang, tanpa perlu membaca apa pun.
+ *
+ * Angka aslinya SELALU ikut tertulis, dan tetap berukuran besar. Batang saja
+ * tidak terbaca oleh pembaca layar, tidak terbaca saat halaman dicetak, dan
+ * tidak dapat dipakai untuk menghitung. Batang hanya membantu membandingkan;
+ * angkanya yang menyampaikan nilainya.
+ *
+ * BENTUK
+ * ------
+ * Garis tepi pada rel dihapus dan relnya dibuat lebih tipis. Rel yang tebal
+ * dengan garis tepi menarik perhatian yang seharusnya jatuh ke angkanya.
+ */
+export interface Batang {
+  label: string;
+  nilai: number;
+  /** Angka yang sudah diformat, mis. "Rp 48.189". */
+  teks: string;
+  nada?: 'utama' | 'netral' | 'peringatan';
+}
+
+export interface Props {
+  kiri: Batang;
+  kanan: Batang;
+  keterangan?: string;
+}
+
+const { kiri, kanan, keterangan } = Astro.props;
+
+const WARNA: Record<string, string> = {
+  utama: 'bg-sipanen-600',
+  netral: 'bg-stone-400',
+  peringatan: 'bg-amber-500',
+};
+
+const maks = Math.max(kiri.nilai, kanan.nilai);
+
+/**
+ * Lebar batang dalam persen. Diberi lantai 6% supaya nilai yang sangat kecil
+ * tetap terlihat sebagai batang — batang selebar nol piksel akan tampak
+ * seperti tidak ada datanya.
+ */
+function lebar(nilai: number): number {
+  if (!(maks > 0) || !Number.isFinite(nilai)) return 0;
+  return Math.max(6, Math.min(100, (nilai / maks) * 100));
+}
+
+const baris = [
+  { ...kiri, lebar: lebar(kiri.nilai), warna: WARNA[kiri.nada ?? 'netral'] },
+  { ...kanan, lebar: lebar(kanan.nilai), warna: WARNA[kanan.nada ?? 'netral'] },
+];
+---
+
+<div class="space-y-2.5">
+  {
+    baris.map((b) => (
+      <div>
+        <div class="flex min-w-0 flex-col gap-0.5 mb-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
+          <span class="text-sm text-tinta-kedua sm:text-base">{b.label}</span>
+          <span class="self-start max-w-full break-words font-bold text-lg tabular-nums sm:self-auto sm:whitespace-nowrap">{b.teks}</span>
+        </div>
+        <div class="h-2.5 rounded-full bg-kertas-garis overflow-hidden">
+          <div class:list={['h-full rounded-full', b.warna]} style={`width: ${b.lebar}%`} />
+        </div>
+      </div>
+    ))
+  }
+  {keterangan && <p class="text-sm text-tinta-redup">{keterangan}</p>}
+</div>

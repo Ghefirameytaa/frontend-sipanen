@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="kuning" x1="0" y1="351" x2="0" y2="478" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFEA68"/><stop offset="1" stop-color="#F6D31A"/>
+    </linearGradient>
+    <linearGradient id="oranye" x1="0" y1="302" x2="0" y2="478" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EB9D3F"/><stop offset="1" stop-color="#E98413"/>
+    </linearGradient>
+    <linearGradient id="biru" x1="0" y1="240" x2="0" y2="478" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#92B9EE"/><stop offset="1" stop-color="#72A7E8"/>
+    </linearGradient>
+    <linearGradient id="hijau" x1="0" y1="197" x2="0" y2="478" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#C3EC68"/><stop offset="1" stop-color="#B2E53A"/>
+    </linearGradient>
+  </defs>
+  <path fill="#3E75C5" d="M0 478a17 17 0 0 1 17-17h478a17 17 0 1 1 0 34H17A17 17 0 0 1 0 478Z"/>
+  <path fill="url(#kuning)" d="M39 368c0-9 8-17 17-17h50c9 0 17 8 17 17v110H39V368Z"/>
+  <path fill="url(#oranye)" d="M156 319c0-9 8-17 17-17h50c9 0 17 8 17 17v159h-84V319Z"/>
+  <path fill="url(#biru)" d="M272 257c0-9 8-17 17-17h50c9 0 17 8 17 17v221h-84V257Z"/>
+  <path fill="url(#hijau)" d="M389 214c0-9 8-17 17-17h50c9 0 17 8 17 17v264h-84V214Z"/>
+  <path fill="#DD4F8C" d="M55 234h94l116-114h68l107-107V0h34c0-9-8-17-17-17h-68c-9 0-17 8-17 17v52l-97 97h-68L139 217H55c-9 0-17 8-17 17s8 17 17 17h101c5 0 9-2 12-5l116-114h68c5 0 9-2 12-5l76-76v64c0 9 8 17 17 17s17-8 17-17V17c0-9-8-17-17-17h-98c-9 0-17 8-17 17s8 17 17 17h57L329 98h-68c-5 0-9 2-12 5L133 217H55c-9 0-17 8-17 17s8 17 17 17Z" transform="translate(0 17)"/>
+</svg>

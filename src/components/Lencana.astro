@@ -1,0 +1,59 @@
+---
+/**
+ * Lencana — putusan sekilas: satu ikon dan dua sampai empat kata.
+ *
+ * MENGAPA ADA
+ * -----------
+ * Kesimpulan yang sebelumnya ditulis sebagai kalimat panjang — "Model ini belum
+ * terbukti lebih baik daripada cara sederhana itu, jadi jangan bersandar pada
+ * angkanya saja" — diringkas menjadi satu lencana yang terbaca sekilas.
+ * Kalimat lengkapnya tidak dihapus; ia dipindahkan ke `Lipatan` tepat di
+ * bawah lencana ini.
+ *
+ * Ketentuan proyek tetap dipegang: lencana TIDAK PERNAH dipakai untuk
+ * menyembunyikan kabar buruk. Bila model kalah dari cara sederhana, lencananya
+ * berbunyi jelas — bukan dibuat netral supaya tampak lebih baik.
+ *
+ * BENTUK
+ * ------
+ * Latar berwarna penuh dihapus; yang tersisa hanya garis tipis dan teks
+ * berwarna. Latar merah/kuning pekat membuat halaman terasa seperti papan
+ * peringatan, dan bila semua hal berteriak, tidak ada lagi yang menonjol.
+ * Warnanya kini hanya di teks dan garis — cukup untuk membedakan, tidak cukup
+ * untuk melelahkan.
+ *
+ * `min-h-sentuh` sengaja TIDAK dipakai: lencana bukan tombol, tidak pernah
+ * ditekan, jadi tinggi minimum 48px hanya akan membuatnya bongsor tanpa
+ * menambah kemudahan apa pun.
+ */
+import Ikon from './Ikon.astro';
+
+export interface Props {
+  nada: 'bagus' | 'hati' | 'buruk' | 'netral';
+  teks: string;
+  /** Menimpa ikon bawaan nada. */
+  ikon?: string;
+  ukuran?: 'normal' | 'besar';
+}
+
+const { nada, teks, ikon, ukuran = 'normal' } = Astro.props;
+
+const gaya = {
+  bagus: { kelas: 'border-sipanen-700 text-sipanen-900', bawaan: 'centang' },
+  hati: { kelas: 'border-amber-600 text-amber-900', bawaan: 'peringatan' },
+  buruk: { kelas: 'border-red-700 text-red-900', bawaan: 'silang' },
+  netral: { kelas: 'border-kertas-garis text-tinta-kedua', bawaan: 'tanya' },
+}[nada];
+
+const g = gaya ?? { kelas: 'border-kertas-garis text-tinta-kedua', bawaan: 'tanya' };
+
+const sisi = ukuran === 'besar' ? 'text-xl px-4 py-2.5 gap-2.5' : 'text-base px-3 py-1.5 gap-2';
+const sisiIkon = ukuran === 'besar' ? 26 : 20;
+---
+
+<span
+  class:list={['inline-flex max-w-full items-start rounded-control border bg-white font-bold leading-snug', g.kelas, sisi]}
+>
+  <Ikon nama={ikon ?? g.bawaan} ukuran={sisiIkon} kelas="shrink-0" />
+  <span class="min-w-0">{teks}</span>
+</span>

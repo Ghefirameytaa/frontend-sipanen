@@ -1,0 +1,341 @@
+---
+/**
+ * DiagnosisResult — menampilkan hasil diagnosis penyakit tanaman.
+ *
+ * Props bisa diisi di server-side (halaman riwayat/detail) atau didisi
+ * lewat JavaScript setelah fetch (halaman scan langsung).
+ *
+ * Bila tidak ada props, komponen ini merender placeholder tersembunyi
+ * yang akan diisi JS saat event pd:result diterima.
+ */
+
+export interface DiagnosisData {
+  id?: string;
+  created_at?: string;
+  plant: string;
+  disease: string;
+  confidence: number;
+  severity: 'low' | 'medium' | 'high' | 'neutral';
+  symptoms: string[];
+  recommended_action: string;
+  rejection_message?: string;
+  model_used?: string;
+  cached?: boolean;
+}
+
+export interface Props {
+  data?: DiagnosisData;
+  /** Bila true, komponen mendengarkan event pd:result dari JS */
+  listenToEvent?: boolean;
+}
+
+const { data, listenToEvent = false } = Astro.props;
+
+function severityClass(s: string) {
+  if (s === 'low') return 'bg-green-100 text-green-800 border border-green-200';
+  if (s === 'medium') return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
+  if (s === 'high') return 'bg-red-100 text-red-800 border border-red-200';
+  if (s === 'neutral') return 'bg-amber-100 text-amber-900 border border-amber-300';
+  return 'bg-gray-100 text-gray-700 border border-gray-200';
+}
+
+function severityLabel(s: string) {
+  if (s === 'low') return '✅ Ringan';
+  if (s === 'medium') return '⚠️ Sedang';
+  if (s === 'high') return '🔴 Parah';
+  if (s === 'neutral') return '⚠️ Citra Ditolak';
+  return s;
+}
+
+function formatConfidence(c: number) {
+  return Math.round(c * 100) + '%';
+}
+
+const hasData = !!data;
+---
+
+<!-- Wrapper: tersembunyi jika tidak ada data dan tidak menunggu event -->
+<div
+  id="pd-result-wrap"
+  class:list={[
+    'space-y-5 transition-all duration-300',
+    !hasData && !listenToEvent ? 'hidden' : '',
+    !hasData && listenToEvent ? 'hidden' : '',
+  ]}
+  aria-live="polite"
+>
+  <div id="pd-result-dynamic"></div>
+</div>
+
+{/* Template HTML untuk hasil dinamis (dirender server, disembunyikan, dipakai JS) */}
+{listenToEvent && (
+  <template id="pd-result-template">
+    <div class="bg-white border border-kertas-garis rounded-card shadow-sm overflow-hidden">
+      <!-- Header tanaman & penyakit -->
+      <div class="px-6 py-5 border-b border-kertas-garis bg-sipanen-50">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p class="text-sm font-medium text-tinta-kedua uppercase tracking-wide" data-field="plant-label"></p>
+            <h2 class="text-2xl font-extrabold text-tinta-utama mt-1" data-field="disease"></h2>
+          </div>
+          <div class="flex flex-col items-end gap-2">
+            <span class="inline-block text-sm font-bold px-3 py-1.5 rounded-full" data-field="severity-badge"></span>
+            <span class="text-sm text-tinta-kedua" data-field="confidence"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Kotak Peringatan Non-Daun -->
+      <div data-field="rejection-box" class="hidden px-6 py-5 bg-amber-50 border-b border-amber-200 text-amber-900">
+        <div class="flex items-start gap-3">
+          <span class="text-2xl select-none" aria-hidden="true">⚠️</span>
+          <div>
+            <h3 class="font-bold text-amber-950 text-base">Tidak Ada Gejala Maupun Rekomendasi</h3>
+            <p class="text-sm text-amber-900 mt-1 leading-relaxed" data-field="rejection-message">
+              Citra yang Anda unggah tidak teridentifikasi sebagai daun tanaman cabai. Sistem tidak menemukan gejala penyakit maupun rekomendasi penanganan.
+            </p>
+            <p class="text-xs text-amber-800 mt-2">
+              💡 <strong>Saran:</strong> Pastikan Anda memotret daun cabai dari jarak dekat (close-up) dengan fokus yang tajam dan pencahayaan yang cukup.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gejala (Disembunyikan jika bukan daun cabai) -->
+      <details data-field="symptoms-section" class="border-t border-kertas-garis">
+        <summary class="flex min-h-sentuh cursor-pointer items-center justify-between gap-3 px-4 py-2 font-bold text-tinta-utama sm:px-6">
+          <span>Gejala yang terdeteksi</span>
+          <span class="text-sm font-semibold text-tinta-kedua" data-field="symptoms-count"></span>
+        </summary>
+        <ul class="space-y-2 px-4 pb-5 sm:px-6" data-field="symptoms-list"></ul>
+      </details>
+
+      <!-- Rekomendasi (Disembunyikan jika bukan daun cabai) -->
+      <details data-field="recommendation-section" class="border-t border-kertas-garis">
+        <summary class="flex min-h-sentuh cursor-pointer items-center gap-3 px-4 py-2 font-bold text-tinta-utama sm:px-6">
+          Detail diagnosis & rekomendasi
+        </summary>
+        <p class="whitespace-pre-line px-4 pb-5 leading-relaxed text-tinta-kedua sm:px-6" data-field="recommended_action"></p>
+      </details>
+
+      <!-- Footer meta -->
+      <div class="px-6 py-3 bg-kertas-lembut border-t border-kertas-garis flex flex-wrap gap-x-4 gap-y-1 text-xs text-tinta-redup">
+        <span data-field="model-used"></span>
+        <span data-field="cached-badge"></span>
+        <span data-field="created-at"></span>
+      </div>
+    </div>
+  </template>
+)}
+
+{listenToEvent && (
+  <script is:inline>
+  (function () {
+    'use strict';
+
+    function severityClass(s) {
+      if (s === 'low')     return 'bg-green-100 text-green-800 border border-green-200';
+      if (s === 'medium')  return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
+      if (s === 'high')    return 'bg-red-100 text-red-800 border border-red-200';
+      if (s === 'neutral') return 'bg-amber-100 text-amber-900 border border-amber-300';
+      return 'bg-gray-100 text-gray-700 border border-gray-200';
+    }
+
+    function severityLabel(s) {
+      if (s === 'low')     return '✅ Ringan';
+      if (s === 'medium')  return '⚠️ Sedang';
+      if (s === 'high')    return '🔴 Parah';
+      if (s === 'neutral') return '⚠️ Citra Ditolak';
+      return s;
+    }
+
+    function formatDate(iso) {
+      if (!iso) return '';
+      var d = new Date(iso);
+      return d.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+    }
+
+    document.addEventListener('pd:result', function (e) {
+      var data = e.detail;
+      if (!data) return;
+
+      var tpl = document.getElementById('pd-result-template');
+      var wrap = document.getElementById('pd-result-wrap');
+      var dynamic = document.getElementById('pd-result-dynamic');
+      if (!tpl || !wrap || !dynamic) return;
+
+      // Clone template
+      var clone = tpl.content.cloneNode(true);
+
+      function setField(name, value) {
+        var el = clone.querySelector('[data-field="' + name + '"]');
+        if (el) el.textContent = value;
+      }
+      function setClass(name, cls) {
+        var el = clone.querySelector('[data-field="' + name + '"]');
+        if (el) { el.className += ' ' + cls; }
+      }
+
+      var plantMap = { tomato: 'Tomat 🍅', chili: 'Cabai 🌶️', non_leaf: 'Bukan Tanaman / Objek Lain ⚠️' };
+      var plantLabel = plantMap[data.plant] || data.plant;
+      setField('plant-label', 'Tanaman: ' + plantLabel);
+      setField('disease', data.disease === 'sehat' ? '✅ Tanaman Sehat' : data.disease);
+      setField('confidence', 'Keyakinan: ' + Math.round((data.confidence || 0) * 100) + '%');
+
+      var badgeEl = clone.querySelector('[data-field="severity-badge"]');
+      if (badgeEl) {
+        badgeEl.textContent = severityLabel(data.severity);
+        badgeEl.className = 'inline-block text-sm font-bold px-3 py-1.5 rounded-full ' + severityClass(data.severity);
+      }
+
+      var isNonLeaf = (data.plant === 'non_leaf') || (data.severity === 'neutral');
+      var symptomsSection = clone.querySelector('[data-field="symptoms-section"]');
+      var recSection = clone.querySelector('[data-field="recommendation-section"]');
+      var rejectionBox = clone.querySelector('[data-field="rejection-box"]');
+
+      if (isNonLeaf) {
+        // Bukan daun cabai: hilangkan gejala dan rekomendasi secara total
+        if (symptomsSection) symptomsSection.classList.add('hidden');
+        if (recSection) recSection.classList.add('hidden');
+        if (rejectionBox) {
+          rejectionBox.classList.remove('hidden');
+          if (data.rejection_message) {
+            var msgEl = rejectionBox.querySelector('[data-field="rejection-message"]');
+            if (msgEl) msgEl.textContent = data.rejection_message;
+          }
+        }
+      } else {
+        if (rejectionBox) rejectionBox.classList.add('hidden');
+
+        // Render gejala jika ada
+        var symsEl = clone.querySelector('[data-field="symptoms-list"]');
+        if (symsEl && Array.isArray(data.symptoms) && data.symptoms.length > 0) {
+          if (symptomsSection) symptomsSection.classList.remove('hidden');
+          setField('symptoms-count', data.symptoms.length + ' gejala');
+          symsEl.innerHTML = '';
+          data.symptoms.forEach(function (s) {
+            var li = document.createElement('li');
+            li.className = 'flex items-start gap-2 text-tinta-kedua';
+            var marker = document.createElement('span');
+            marker.className = 'mt-0.5 shrink-0 text-sipanen-600';
+            marker.setAttribute('aria-hidden', 'true');
+            marker.textContent = '▸';
+            var text = document.createElement('span');
+            text.textContent = s;
+            li.appendChild(marker);
+            li.appendChild(text);
+            symsEl.appendChild(li);
+          });
+        } else {
+          if (symptomsSection) symptomsSection.classList.add('hidden');
+        }
+
+        // Render rekomendasi jika ada
+        if (data.recommended_action && data.recommended_action.trim().length > 0) {
+          if (recSection) recSection.classList.remove('hidden');
+          setField('recommended_action', data.recommended_action);
+        } else {
+          if (recSection) recSection.classList.add('hidden');
+        }
+      }
+
+      if (data.model_used) setField('model-used', 'Model: ' + data.model_used);
+      if (data.cached) setField('cached-badge', '📦 Dari cache');
+      if (data.created_at) setField('created-at', formatDate(data.created_at));
+
+      // Kosongkan dan isi ulang
+      dynamic.innerHTML = '';
+      dynamic.appendChild(clone);
+
+      // Tampilkan wrapper
+      wrap.classList.remove('hidden');
+
+      // Scroll ke hasil
+      wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  })();
+  </script>
+)}
+
+---
+<!-- Server-render untuk halaman detail/riwayat -->
+{hasData && (
+  <div class="bg-white border border-kertas-garis rounded-card shadow-sm overflow-hidden">
+    <!-- Header -->
+    <div class="px-6 py-5 border-b border-kertas-garis bg-sipanen-50">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p class="text-sm font-medium text-tinta-kedua uppercase tracking-wide">
+            Tanaman: {data!.plant === 'tomato' ? 'Tomat 🍅' : data!.plant === 'chili' ? 'Cabai 🌶️' : data!.plant === 'non_leaf' ? 'Bukan Tanaman / Objek Lain ⚠️' : data!.plant}
+          </p>
+          <h2 class="text-2xl font-extrabold text-tinta-utama mt-1">
+            {data!.disease === 'sehat' ? '✅ Tanaman Sehat' : data!.disease}
+          </h2>
+        </div>
+        <div class="flex flex-col items-end gap-2">
+          <span class:list={['inline-block text-sm font-bold px-3 py-1.5 rounded-full', severityClass(data!.severity)]}>
+            {severityLabel(data!.severity)}
+          </span>
+          <span class="text-sm text-tinta-kedua">
+            Keyakinan: {formatConfidence(data!.confidence)}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Kotak Non-Daun -->
+    {(data!.plant === 'non_leaf' || data!.severity === 'neutral') && (
+      <div class="px-6 py-5 bg-amber-50 border-b border-amber-200 text-amber-900">
+        <div class="flex items-start gap-3">
+          <span class="text-2xl select-none" aria-hidden="true">⚠️</span>
+          <div>
+            <h3 class="font-bold text-amber-950 text-base">Tidak Ada Gejala Maupun Rekomendasi</h3>
+            <p class="text-sm text-amber-900 mt-1 leading-relaxed">
+              {data!.rejection_message || 'Citra yang Anda unggah tidak teridentifikasi sebagai daun tanaman cabai. Sistem tidak menemukan gejala penyakit maupun rekomendasi penanganan.'}
+            </p>
+            <p class="text-xs text-amber-800 mt-2">
+              💡 <strong>Saran:</strong> Pastikan Anda memotret daun cabai dari jarak dekat (close-up) dengan fokus yang tajam dan pencahayaan yang cukup.
+            </p>
+          </div>
+        </div>
+      </div>
+    )}
+
+    <!-- Gejala -->
+    {data!.plant !== 'non_leaf' && data!.severity !== 'neutral' && data!.symptoms && data!.symptoms.length > 0 && (
+      <details class="border-t border-kertas-garis">
+        <summary class="flex min-h-sentuh cursor-pointer items-center justify-between gap-3 px-4 py-2 font-bold text-tinta-utama sm:px-6">
+          <span>Gejala yang terdeteksi</span>
+          <span class="text-sm font-semibold text-tinta-kedua">{data!.symptoms.length} gejala</span>
+        </summary>
+        <ul class="space-y-2 px-4 pb-5 sm:px-6">
+          {data!.symptoms.map((s) => (
+            <li class="flex items-start gap-2 text-tinta-kedua">
+              <span class="mt-0.5 shrink-0 text-sipanen-600" aria-hidden="true">▸</span>
+              <span>{s}</span>
+            </li>
+          ))}
+        </ul>
+      </details>
+    )}
+
+    <!-- Rekomendasi -->
+    {data!.plant !== 'non_leaf' && data!.severity !== 'neutral' && data!.recommended_action && data!.recommended_action.trim() !== '' && (
+      <details class="border-t border-kertas-garis">
+        <summary class="flex min-h-sentuh cursor-pointer items-center px-4 py-2 font-bold text-tinta-utama sm:px-6">
+          Detail diagnosis & rekomendasi
+        </summary>
+        <p class="whitespace-pre-line px-4 pb-5 leading-relaxed text-tinta-kedua sm:px-6">{data!.recommended_action}</p>
+      </details>
+    )}
+
+    <!-- Footer meta -->
+    {(data!.model_used || data!.created_at) && (
+      <div class="px-6 py-3 bg-kertas-lembut border-t border-kertas-garis flex flex-wrap gap-x-4 gap-y-1 text-xs text-tinta-redup">
+        {data!.model_used && <span>Model: {data!.model_used}</span>}
+        {data!.cached && <span>📦 Dari cache</span>}
+        {data!.created_at && <span>{new Date(data!.created_at).toLocaleString('id-ID')}</span>}
+      </div>
+    )}
+  </div>
+)}

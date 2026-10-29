@@ -1,0 +1,440 @@
+---
+/**
+ * Beranda — pintu masuk ke layanan dan informasi pertanian SiPanen.
+ */
+import MainLayout from '../layouts/MainLayout.astro';
+import BatangBanding from '../components/BatangBanding.astro';
+import DataSourceBadge from '../components/DataSourceBadge.astro';
+import DataState from '../components/DataState.astro';
+import Ikon from '../components/Ikon.astro';
+import Lencana from '../components/Lencana.astro';
+import Lipatan from '../components/Lipatan.astro';
+import { warnaKomoditas } from '../lib/komoditas';
+import { sebutanRentang } from '../lib/rentang';
+import { getBackendHealth, getLatestPrices, getTopRecommendations, rupiah, persen, tanggalPanjang } from '../lib/api';
+import { wilayahAktif } from '../lib/wilayah';
+
+const [wilayah, serverSehat] = await Promise.all([wilayahAktif(), getBackendHealth()]);
+
+// Kedua permintaan dijalankan bersamaan; keduanya tidak saling bergantung.
+const [hasilHarga, hasilSaran] = wilayah.ok
+  ? await Promise.all([
+      getLatestPrices(wilayah.data.id),
+      getTopRecommendations({ regionId: wilayah.data.id, limit: 3 }),
+    ])
+  : [null, null];
+
+const harga = hasilHarga?.ok ? hasilHarga.data : [];
+const saran = hasilSaran?.ok ? hasilSaran.data : null;
+const rekomendasi = saran?.recommendations ?? [];
+const waktuSaran = saran?.computed_at ?? '';
+
+const fitur = [
+  {
+    href: '/harga?bagian=prediksi',
+    ikon: 'growth',
+    judul: 'Prediksi Harga Pasar',
+    isi: 'Perkiraan 90 hari ke depan, beserta rentangnya.',
+    utama: true,
+  },
+  {
+    href: '/kalender#saran-tanam',
+    ikon: 'bulb',
+    judul: 'Saran Tanam',
+    isi: 'Tiga komoditas paling menguntungkan, dengan alasannya.',
+    utama: true,
+  },
+  {
+    href: '/scan-penyakit',
+    ikon: 'dslr',
+            judul: 'Pemeriksaan Penyakit Cabai & Tomat',
+            isi: 'Analisis foto daun dan baca panduan gejala serta pencegahan untuk kedua tanaman.',
+    utama: true,
+  },
+  {
+    href: '/kalender',
+    ikon: 'kalender',
+    judul: 'Kalender Masa Tanam',
+    isi: 'Jadwal persiapan sampai panen, bulan demi bulan.',
+    utama: false,
+  },
+  {
+    href: '/harga',
+    ikon: 'harga',
+    judul: 'Harga Hari Ini',
+    isi: 'Harga terkini tiap komoditas di Kab. Wonosobo.',
+    utama: false,
+  },
+  {
+    href: '/edukasi',
+    ikon: 'panduan',
+    judul: 'Panduan Pupuk & Nutrisi',
+    isi: 'Cara memupuk dan mengenali tanaman kekurangan hara.',
+    utama: false,
+  },
+];
+---
+
+<MainLayout title="Beranda">
+  {
+    !wilayah.ok ? (
+      <div class="space-y-6">
+        {/* Judul tetap ditampilkan walau data gagal dimuat, supaya halaman
+            tidak pernah kehilangan penanda utamanya — penting bagi pengguna
+            pembaca layar, yang menavigasi berdasarkan judul. */}
+        <h1 class="text-3xl font-extrabold leading-tight sm:text-4xl">Informasi pertanian untuk petani</h1>
+        <DataState
+          jenis={wilayah.error.code === 'tidak_terhubung' ? 'galat' : 'kosong'}
+          pesan={wilayah.error.message}
+          saran="Pastikan server data menyala, lalu muat ulang halaman ini."
+        />
+      </div>
+    ) : (
+      <div class="space-y-10 sm:space-y-14">
+        <section class="relative isolate min-h-[30rem] overflow-hidden rounded-panel bg-[#64902E] text-white shadow-lg" aria-labelledby="judul-utama">
+          <div class="relative z-10 mx-auto grid min-h-[30rem] w-full max-w-[90rem] items-center gap-8 px-5 py-8 sm:px-10 sm:py-10 lg:px-14">
+            <div class="flex flex-col items-start text-left">
+            <a
+              href="#judul-layanan"
+              class="group relative -top-2 mb-5 inline-flex w-fit max-w-full items-center justify-center gap-1.5 rounded-full bg-[#EAF2CF] px-2.5 py-1.5 text-center text-[10px] font-bold uppercase leading-tight tracking-[0.04em] text-[#263238] shadow-[0_2px_8px_rgba(38,50,56,0.18)] transition-all duration-200 hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-[#CFEB73] hover:shadow-[0_4px_12px_rgba(38,50,56,0.24)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FFFFFF] active:translate-y-0 active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none dark:bg-[#ABBED1] dark:text-[#263238] dark:hover:bg-[#89939E] sm:gap-2 sm:px-3 sm:text-sm sm:tracking-wide lg:mb-3"
+              title="Lihat layanan SiPanen"
+            >
+              <span class="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-[#D32F2F] shadow-[0_0_10px_rgba(211,47,47,0.8)] transition-all duration-200 group-hover:scale-110 motion-reduce:animate-none motion-reduce:transition-none" aria-hidden="true"></span>
+              <span class="min-w-0">Informasi Pertanian {wilayah.data.name}</span>
+            </a>
+            <h1 id="judul-utama" class="font-display max-w-none text-xl font-extrabold leading-tight sm:text-3xl lg:text-4xl xl:whitespace-nowrap">
+              Sistem Informasi Pertanian Desa Mojotengah
+            </h1>
+            <p class="mt-5 max-w-3xl text-base leading-relaxed text-[#FFFFFF] sm:text-lg lg:mt-5 lg:text-xl">
+              Platform digital pertanian untuk memantau harga, prediksi, saran tanam, kalender pertanian, diagnosis tanaman, dan panduan budidaya bagi petani {wilayah.data.name}.
+            </p>
+            <div class="mt-6 flex w-full max-w-4xl flex-row flex-wrap items-center justify-start gap-2 sm:mt-8 sm:w-auto sm:gap-3">
+              <a href="/harga" class="inline-flex min-h-sentuh w-fit items-center justify-center gap-1 whitespace-nowrap rounded-full border border-transparent bg-[#CFEB73] px-3 text-center text-xs font-bold leading-tight text-[#263238] shadow-[0_4px_14px_rgba(38,50,56,0.2)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#C4E45D] hover:shadow-[0_8px_22px_rgba(38,50,56,0.32)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FFFFFF] active:translate-y-0 active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none sm:w-auto sm:flex-none sm:gap-2 sm:px-5 sm:text-base sm:leading-normal sm:min-w-[12.5rem] dark:shadow-[0_4px_14px_rgba(248,249,250,0.12)] dark:hover:shadow-[0_8px_22px_rgba(248,249,250,0.2)]">
+                <Ikon nama="harga" ukuran={16} kelas="shrink-0 sm:h-[22px] sm:w-[22px]" inline />
+                Cek harga hari ini
+              </a>
+              <a href="/kalender#saran-tanam" class="inline-flex min-h-sentuh w-fit items-center justify-center gap-1 whitespace-nowrap rounded-full border border-white bg-white px-3 text-center text-xs font-bold leading-tight text-[#263238] shadow-[0_4px_14px_rgba(38,50,56,0.2)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#F1F4EE] hover:bg-[#F1F4EE] hover:shadow-[0_8px_22px_rgba(38,50,56,0.32)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FFFFFF] active:translate-y-0 active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none sm:w-auto sm:flex-none sm:gap-2 sm:px-5 sm:text-base sm:leading-normal sm:min-w-[12.5rem] dark:shadow-[0_4px_14px_rgba(248,249,250,0.12)] dark:hover:shadow-[0_8px_22px_rgba(248,249,250,0.2)]">
+                <Ikon nama="saran" ukuran={16} kelas="shrink-0 sm:h-[22px] sm:w-[22px]" inline />
+                Lihat saran tanam
+              </a>
+            <ul class="mt-1 flex w-fit max-w-full flex-wrap justify-start gap-2 text-[13px] leading-tight text-[#FFFFFF] sm:text-sm sm:leading-normal">
+              <li>
+                <a
+                  href="https://maps.app.goo.gl/VL6iMscwiEDm4pkd9"
+                  target="_blank"
+                  rel="noreferrer"
+                  class="group inline-flex min-h-10 w-fit max-w-full items-center gap-1.5 rounded-full border border-[#F8F9FA] bg-[#4D4D4D]/25 px-2.5 py-1.5 text-[13px] shadow-[0_2px_8px_rgba(38,50,56,0.3)] transition-all duration-200 hover:-translate-y-0.5 hover:border-white hover:bg-[#4D4D4D]/40 hover:shadow-[0_0_14px_rgba(255,255,255,0.2)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FFFFFF] active:translate-y-0 active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none sm:gap-1.5 sm:px-3"
+                  aria-label={`Buka lokasi ${wilayah.data.name}, ${wilayah.data.regency} di Google Maps`}
+                >
+                  <Ikon nama="beranda" ukuran={16} kelas="block shrink-0 transition-transform duration-200 group-hover:scale-110 motion-reduce:transition-none" />
+                  <span class="inline-flex min-w-0 items-center whitespace-nowrap leading-none">{wilayah.data.name}, {wilayah.data.regency}</span>
+                </a>
+              </li>
+              <li class="group inline-flex min-h-10 w-fit max-w-full items-center gap-1.5 rounded-full border border-[#F8F9FA] bg-[#4D4D4D]/25 px-2.5 py-1.5 text-[13px] shadow-[0_2px_8px_rgba(38,50,56,0.3)] transition-all duration-200 hover:-translate-y-0.5 hover:border-white hover:bg-[#4D4D4D]/40 hover:shadow-[0_0_14px_rgba(255,255,255,0.2)] active:translate-y-0 active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none sm:gap-1.5 sm:px-3">
+                <Ikon nama="gunung" ukuran={16} kelas="block shrink-0 transition-transform duration-200 group-hover:scale-110 motion-reduce:transition-none" />
+                <span class="inline-flex min-w-0 items-center leading-none">{wilayah.data.elevation_m} mdpl</span>
+              </li>
+              <li class="group inline-flex min-h-10 w-fit max-w-full items-center gap-1.5 rounded-full border border-[#F8F9FA] bg-[#4D4D4D]/25 px-2.5 py-1.5 text-[13px] shadow-[0_2px_8px_rgba(38,50,56,0.3)] transition-all duration-200 hover:-translate-y-0.5 hover:border-white hover:bg-[#4D4D4D]/40 hover:shadow-[0_0_14px_rgba(255,255,255,0.2)] active:translate-y-0 active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none sm:gap-1.5 sm:px-3">
+                <Ikon nama="daun" ukuran={16} kelas="shrink-0 transition-transform duration-200 group-hover:scale-110 motion-reduce:transition-none" />
+                <span class="min-w-0 leading-snug">Lahan {wilayah.data.land_type}</span>
+              </li>
+              <li class="group inline-flex min-h-10 w-fit max-w-full items-center gap-1.5 rounded-full border border-[#F8F9FA] bg-[#4D4D4D]/25 px-2.5 py-1.5 text-[13px] font-semibold leading-tight text-[#FFFFFF] shadow-[0_2px_8px_rgba(38,50,56,0.3)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#4D4D4D]/40 hover:shadow-[0_0_14px_rgba(255,255,255,0.2)] active:translate-y-0 active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none sm:gap-1.5 sm:px-3 sm:leading-snug" role="status">
+              <span class:list={['h-2.5 w-2.5 shrink-0 rounded-full ring-1 animate-pulse transition-all duration-200 group-hover:scale-125 motion-reduce:animate-none motion-reduce:transition-none', serverSehat ? 'bg-[#C0F283] ring-[#C0F283]/40 shadow-[0_0_10px_rgba(192,242,131,0.95)]' : 'bg-[#FBC02D] ring-[#FBC02D]/40 shadow-[0_0_10px_rgba(251,192,45,0.95)]']} aria-hidden="true"></span>
+              {serverSehat ? 'Server data aktif' : 'Server data belum terhubung'}
+              </li>
+            </ul>
+            </div>
+          </div>
+          <div class="absolute inset-0 -z-10">
+            <img
+              src="/tomat-beranda.png"
+              alt=""
+              aria-hidden="true"
+              class="hero-background hero-background-tomato absolute inset-0 h-full w-full object-cover"
+              width="1920"
+              height="768"
+              fetchpriority="high"
+            />
+            <img
+              src="/cabai-merah-beranda.jpg"
+              alt=""
+              aria-hidden="true"
+              class="hero-background hero-background-chili absolute inset-0 h-full w-full object-cover"
+              width="1094"
+              height="768"
+              loading="eager"
+              decoding="async"
+            />
+            <div class="absolute inset-0 bg-gradient-to-r from-black/55 via-black/30 to-black/10" aria-hidden="true"></div>
+          </div>
+        </section>
+
+        {
+          wilayah.data.source && (
+            <p class="!mt-8 flex w-fit max-w-full items-start gap-3 rounded-3xl border border-[#D5E3A8] bg-[#EAF2CF] px-4 py-3 text-[#263238] shadow-[0_2px_8px_rgba(38,50,56,0.12)]">
+              <span class="mt-0.5 shrink-0 text-[#B45309]"><Ikon nama="peringatan" ukuran={22} /></span>
+              <span><strong>Ketinggian {wilayah.data.elevation_m} m:</strong> {wilayah.data.source}</span>
+            </p>
+          )
+        }
+
+        <section class="!mt-10" aria-labelledby="judul-layanan">
+          <div class="mx-auto mb-6 max-w-2xl text-center">
+            <p class="mb-2 text-sm font-bold uppercase tracking-wider text-sipanen-800">Layanan SiPanen</p>
+            <h2 id="judul-layanan" class="scroll-mt-24 font-display text-3xl font-semibold leading-tight sm:scroll-mt-40 sm:text-4xl">Apa yang ingin Anda cari?</h2>
+            <p class="mt-3 text-tinta-kedua">Pilih kebutuhan Anda untuk langsung membuka informasi yang tepat.</p>
+          </div>
+          <div class="mx-auto grid max-w-5xl gap-4 md:grid-cols-3">
+            {fitur.map((f) => (
+              <a
+                href={f.href}
+                class="group flex h-full min-h-[168px] flex-col items-center rounded-card border border-kertas-garis bg-white p-3 text-center text-tinta-utama shadow-[0_4px_14px_rgba(38,50,56,0.12)] transition-all duration-200 ease-out hover:-translate-y-1 hover:border-sipanen-600 hover:shadow-[0_12px_28px_rgba(100,144,46,0.2)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sipanen-700 active:translate-y-0 active:scale-[0.99] motion-reduce:transform-none motion-reduce:transition-none sm:min-h-[180px] sm:p-4 dark:bg-[#4D4D4D] dark:text-[#F8F9FA] dark:shadow-[0_4px_14px_rgba(248,249,250,0.08)] dark:hover:border-sipanen-400 dark:hover:shadow-[0_0_20px_rgba(248,249,250,0.2)]"
+                data-animasi
+              >
+                <span class:list={[
+                  'mb-3 inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EAF2CF] text-[#263238] ring-1 ring-inset ring-[#D5E3A8] transition-all duration-200 group-hover:scale-105 group-hover:bg-[#CFEB73] group-hover:shadow-md sm:mb-4 sm:h-12 sm:w-12 dark:bg-[#99B82E]/15 dark:text-[#F8F9FA] dark:ring-[#99B82E]/50 dark:group-hover:bg-[#99B82E]/25',
+                ]}>
+                  <Ikon nama={f.ikon} ukuran={22} kelas="transition-transform duration-200 group-hover:scale-110 sm:h-6 sm:w-6" />
+                </span>
+                <span class="text-base font-bold leading-snug transition-colors group-hover:text-sipanen-800 dark:group-hover:text-lime-200 sm:text-lg">{f.judul}</span>
+                <span class="mt-1.5 flex-1 text-sm text-tinta-kedua dark:text-[#F8F9FA]/80">{f.isi}</span>
+              </a>
+            ))}
+          </div>
+        </section>
+
+        <!-- Saran tanam: bagian terpenting, diletakkan paling atas -->
+        {rekomendasi.length > 0 && (
+        <section aria-labelledby="judul-saran">
+          <div class="flex flex-wrap items-baseline gap-3 mb-4">
+            <h2 id="judul-saran" class="font-display text-3xl font-semibold">
+              Sebaiknya menanam apa sekarang?
+            </h2>
+            {rekomendasi.length > 0 && (
+              <span class="text-tinta-redup">
+                dihitung {tanggalPanjang(waktuSaran)}
+              </span>
+            )}
+          </div>
+
+          {
+            !saran || !hasilSaran?.ok ? (
+              <DataState
+                jenis={hasilSaran?.ok === false && hasilSaran.error.code === 'tidak_terhubung' ? 'galat' : 'kosong'}
+                judul="Saran tanam belum dapat disusun"
+                pesan={
+                  hasilSaran && !hasilSaran.ok
+                    ? hasilSaran.error.message
+                    : 'Rekomendasi belum dapat dihitung.'
+                }
+                saran="Saran tanam memerlukan hasil prediksi harga. Pastikan proses prediksi sudah dijalankan."
+              />
+            ) : rekomendasi.length === 0 ? (
+              <DataState
+                jenis="kosong"
+                judul="Belum ada komoditas yang dapat disarankan"
+                pesan="Belum ada prediksi harga yang cukup untuk menilai komoditas mana yang paling menguntungkan."
+                saran="Jalankan proses prediksi terlebih dahulu, lalu muat ulang halaman ini."
+              />
+            ) : (
+              <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {rekomendasi.map((r) => {
+                  const naik = r.expected_gain_pct > 0;
+                  // `uncertainty_pct` sudah berupa lebar rentang penuh terhadap
+                  // angka tengah, jadi tidak perlu dihitung ulang di sini.
+                  const rentang = sebutanRentang(r.uncertainty_pct);
+
+                  return (
+                    <a
+                      href="/kalender#saran-tanam"
+                      class:list={[
+                        'flex flex-col gap-3 rounded-card border border-kertas-garis bg-white p-5 transition duration-200 hover:-translate-y-1 hover:shadow-lg min-h-sentuh',
+                        r.rank === 1
+                          ? 'ring-2 ring-sipanen-600 ring-inset'
+                          : 'hover:border-sipanen-600',
+                      ]}
+                      data-animasi
+                    >
+                      <div class="flex items-start gap-3">
+                        <span
+                          class:list={[
+                            'shrink-0 mt-0.5',
+                            warnaKomoditas(r.commodity_code),
+                          ]}
+                        >
+                          <Ikon nama={r.commodity_code} ukuran={30} />
+                        </span>
+                        <div class="flex-1 min-w-0">
+                          <p class="text-sm font-semibold text-tinta-redup">Peringkat {r.rank}</p>
+                          <p class="text-xl font-bold leading-tight">{r.commodity_name}</p>
+                        </div>
+                      </div>
+
+                      <Lencana
+                        nada={!naik ? 'hati' : rentang.nada === 'hati' ? 'hati' : 'bagus'}
+                        teks={
+                          !naik
+                            ? 'Perkiraan harga turun'
+                            : rentang.nada === 'hati'
+                              ? 'Naik, tapi belum pasti'
+                              : 'Perkiraan harga naik'
+                        }
+                        ikon={!naik ? 'panah-turun' : rentang.nada === 'hati' ? 'tanya' : 'panah-naik'}
+                      />
+
+                      <BatangBanding
+                        kiri={{
+                          label: 'Harga kini',
+                          nilai: r.current_price,
+                          teks: rupiah(r.current_price),
+                          nada: 'netral',
+                        }}
+                        kanan={{
+                          label: 'Saat panen',
+                          nilai: r.expected_price_at_harvest,
+                          teks: rupiah(r.expected_price_at_harvest),
+                          nada: naik ? 'utama' : 'peringatan',
+                        }}
+                        keterangan={r.expected_gain_pct !== 0
+                          ? `Selisih ${persen(r.expected_gain_pct, 0)}`
+                          : undefined}
+                      />
+                    </a>
+                  );
+                })}
+              </div>
+            )
+          }
+
+        </section>
+        )}
+
+        <!-- Harga hari ini sebagai pembanding kenyataan -->
+        <section aria-labelledby="judul-harga" class="relative left-1/2 -ml-[50vw] w-screen bg-white py-8 sm:py-10">
+          <div class="mx-auto max-w-[90rem] px-4 sm:px-6 lg:px-8">
+          <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p class="mb-1 text-sm font-bold uppercase tracking-wider text-sipanen-800">Pantauan pasar</p>
+              <h2 id="judul-harga" class="font-display text-3xl font-semibold">Harga hari ini</h2>
+            </div>
+            <a href="/harga" class="font-bold text-sipanen-800 underline decoration-sipanen-300 underline-offset-4 hover:text-sipanen-950">Lihat semua harga</a>
+          </div>
+
+          {
+            !hasilHarga || !hasilHarga.ok ? (
+              <DataState
+                jenis={hasilHarga?.ok === false && hasilHarga.error.code === 'tidak_terhubung' ? 'galat' : 'kosong'}
+                pesan={hasilHarga && !hasilHarga.ok ? hasilHarga.error.message : 'Harga belum tersedia.'}
+                tautan={{ href: '/harga', label: 'Buka halaman harga' }}
+              />
+            ) : harga.length === 0 ? (
+              <DataState
+                jenis="kosong"
+                judul="Belum ada catatan harga"
+                pesan="Basis data harga untuk wilayah ini masih kosong."
+                saran="Pastikan proses pengambilan data harga sudah dijalankan."
+              />
+            ) : (
+              <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {harga.map((h) => {
+                  const naik = h.has_previous && h.change_absolute > 0;
+                  const turun = h.has_previous && h.change_absolute < 0;
+                  return (
+                    <div
+                      class="flex flex-col gap-2 rounded-card border border-kertas-garis bg-white p-5"
+                      data-animasi
+                    >
+                      <div class="flex items-start gap-3">
+                        <span
+                          class:list={[
+                            'shrink-0 mt-0.5',
+                            warnaKomoditas(h.commodity_code),
+                          ]}
+                        >
+                          <Ikon nama={h.commodity_code} ukuran={30} />
+                        </span>
+                        <div class="flex-1 min-w-0">
+                          <p class="font-bold text-lg leading-tight">{h.commodity_name}</p>
+                          <p class="text-tinta-redup">{h.variety}</p>
+                        </div>
+                        <DataSourceBadge
+                          kind={
+                            h.data_kind === 'aktual'
+                              ? 'aktual'
+                              : h.data_kind === 'simulasi'
+                                ? 'simulasi'
+                                : 'tidak_diketahui'
+                          }
+                          ukuran="kecil"
+                        />
+                      </div>
+
+                      <p class="text-3xl font-extrabold tabular-nums leading-none mt-1">
+                        {rupiah(h.price)}
+                      </p>
+                      <p class="text-sm text-tinta-redup">per {h.unit}</p>
+
+                      {h.has_previous ? (
+                        <p
+                          class:list={[
+                            'flex items-center gap-2 text-xl font-bold mt-1',
+                            naik ? 'text-red-800' : turun ? 'text-sipanen-800' : 'text-tinta-kedua',
+                          ]}
+                        >
+                          <Ikon
+                            nama={naik ? 'panah-naik' : turun ? 'panah-turun' : 'tetap'}
+                            ukuran={26}
+                          />
+                          {persen(h.change_percent)}
+                        </p>
+                      ) : (
+                        <p class="flex items-center gap-2 text-tinta-kedua mt-1">
+                          <Ikon nama="tanya" ukuran={22} />
+                          Belum dapat dibandingkan
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )
+          }
+
+          </div>
+        </section>
+
+      </div>
+    )
+  }
+</MainLayout>
+
+<style is:global>
+  .hero-background-tomato {
+    animation: hero-tomato 8s ease-in-out infinite;
+  }
+
+  .hero-background-chili {
+    animation: hero-chili 8s ease-in-out infinite;
+  }
+
+  @keyframes hero-tomato {
+    0%, 45%, 100% { opacity: 1; }
+    50%, 95% { opacity: 0; }
+  }
+
+  @keyframes hero-chili {
+    0%, 45%, 100% { opacity: 0; }
+    50%, 95% { opacity: 1; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-background-tomato,
+    .hero-background-chili {
+      animation: none;
+    }
+
+    .hero-background-tomato { opacity: 1; }
+    .hero-background-chili { opacity: 0; }
+  }
+</style>
+

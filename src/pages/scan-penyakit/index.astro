@@ -1,0 +1,83 @@
+---
+/**
+ * Halaman Scan Penyakit Tanaman.
+ *
+ * Pengguna mengunggah foto daun tomat; TomatCare AI menganalisisnya
+ * dan hasilnya ditampilkan langsung di bawah form. Seluruh interaksi
+ * (upload, fetch, render hasil) ditangani komponen PlantDiseaseUpload dan
+ * DiagnosisResult via event custom.
+ *
+ * Halaman ini adalah SSR murni pada awal muat — tidak ada data yang diambil
+ * saat server render. Semua fetch terjadi di browser setelah pengguna menekan
+ * tombol "Analisis".
+ */
+import MainLayout from '../../layouts/MainLayout.astro';
+import PlantDiseaseUpload from '../../components/PlantDiseaseUpload.astro';
+import DiagnosisResult from '../../components/DiagnosisResult.astro';
+import Ikon from '../../components/Ikon.astro';
+
+// Untuk upload dari browser, kita butuh base URL yang bisa dijangkau
+// DARI peramban — bukan dari dalam container Astro. Gunakan PUBLIC_ env.
+const publicApiBase =
+  import.meta.env.PUBLIC_API_BASE_URL?.replace(/\/api$/, '') || '';
+
+---
+
+<MainLayout
+  title="Penyakit"
+  description="Periksa gejala penyakit daun cabai atau tomat menggunakan layanan diagnosis AI SiPanen."
+>
+  <div class="space-y-10">
+    <section data-page-hero class="relative isolate overflow-hidden rounded-panel bg-[#64902E] text-white shadow-lg">
+      <img src="https://images.unsplash.com/photo-1592841200221-a6898f307baa?auto=format&fit=crop&w=1600&q=85" alt="Tanaman tomat di kebun" class="absolute inset-0 z-0 h-full w-full object-cover opacity-35" width="1600" height="900" />
+      <div data-page-hero-overlay class="absolute inset-0 z-10 bg-gradient-to-r from-[#64902E] via-[#64902E]/90 to-[#64902E]/35" aria-hidden="true"></div>
+      <div class="relative z-20 grid gap-6 px-4 py-7 sm:gap-8 sm:px-10 sm:py-12 lg:grid-cols-[1.1fr_0.9fr] lg:px-14 lg:py-14">
+        <header>
+          <p data-page-hero-badge class="mb-3 inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#EAF2CF] px-2.5 py-1.5 text-[10px] font-bold uppercase leading-tight tracking-[0.04em] text-[#263238] sm:gap-2 sm:px-3 sm:text-sm sm:tracking-wide">
+            <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#64902E]" aria-hidden="true"></span>
+            <span class="min-w-0">Kesehatan tanaman · AI</span>
+          </p>
+          <h1 class="font-display max-w-2xl text-3xl font-semibold leading-tight sm:text-4xl">Kenali gejala lebih awal, rawat tanaman dengan tepat.</h1>
+          <p class="mt-4 max-w-2xl text-base text-green-50 sm:text-lg">
+            Unggah foto daun cabai atau tomat untuk mendapatkan perkiraan diagnosis dan arahan penanganan awal.
+          </p>
+        </header>
+        <aside class="border-t border-white/25 pt-4 lg:border-l lg:border-t-0 lg:pt-0 lg:pl-7">
+          <h2 class="text-xl font-bold">Agar hasil lebih jelas</h2>
+          <ul class="mt-4 space-y-3">
+          {[
+            'Foto satu daun yang menunjukkan gejala dengan jelas.',
+            'Gunakan pencahayaan cukup dan hindari gambar buram.',
+            'Sertakan bagian daun secara utuh, bukan hanya bercaknya.',
+          ].map((tip) => (
+            <li class="flex items-start gap-3 text-[#F8F9FA]">
+              <span class="mt-0.5 text-[#F8F9FA]"><Ikon nama="centang" ukuran={21} /></span>
+              <span>{tip}</span>
+            </li>
+          ))}
+          </ul>
+          <p class="mt-5 border-t border-white/20 pt-4 text-sm text-[#F8F9FA]">JPG, PNG, atau WebP · maksimal 10 MB. Foto dikirim ke layanan diagnosis untuk dianalisis.</p>
+        </aside>
+      </div>
+    </section>
+
+    <section class="w-full">
+      <div class="rounded-card border border-kertas-garis bg-white p-4 shadow-sm sm:p-8">
+        <div class="mb-6">
+          <p class="text-sm font-bold uppercase text-sipanen-800">Mulai pemeriksaan</p>
+          <h2 id="judul-scan" class="mt-1 font-display text-3xl font-semibold">Pilih foto tanaman</h2>
+        </div>
+        <PlantDiseaseUpload />
+        <section aria-label="Hasil diagnosis penyakit" aria-live="polite" class="mt-6">
+          <DiagnosisResult listenToEvent={true} />
+        </section>
+      </div>
+    </section>
+</MainLayout>
+
+<script is:inline define:vars={{ publicApiBase }}>
+  // Sediakan base URL ke komponen PlantDiseaseUpload yang berjalan di browser.
+  // Komponen upload memakai window.__SIPANEN_API_BASE__ agar tidak perlu
+  // env variable yang ditanam saat build.
+  window.__SIPANEN_API_BASE__ = publicApiBase;
+</script>
