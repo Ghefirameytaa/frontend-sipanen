@@ -22,18 +22,16 @@ export interface Props {
   sumber?: string;
   /** Ukuran lencana. `kecil` dipakai di dalam tabel. */
   ukuran?: 'normal' | 'kecil';
-  /** Pilih warna hijau yang sama dengan lencana Realtime Wonosobo. */
-  warna?: 'bawaan' | 'realtime';
 }
 
-const { kind, sumber, ukuran = 'normal', warna = 'bawaan' } = Astro.props;
+const { kind, sumber, ukuran = 'normal' } = Astro.props;
 
 // Warna dipilih agar teks tetap melewati ambang kontras 7:1 terhadap latarnya,
 // karena lencana ini sering menjadi satu-satunya pembeda antara angka nyata
 // dan angka contoh.
 const gaya: Record<string, { kelas: string; label: string; arti: string }> = {
   aktual: {
-    kelas: 'bg-[#E9F2CD] text-emerald-800 border-transparent',
+    kelas: 'bg-[#EAF2CF] text-emerald-800 border-transparent',
     label: 'Data aktual',
     arti: 'Angka ini berasal dari pencatatan nyata.',
   },
@@ -55,32 +53,19 @@ const gaya: Record<string, { kelas: string; label: string; arti: string }> = {
 };
 
 const g = gaya[kind] ?? gaya.tidak_diketahui;
-const kelasWarna = (kind === 'simulasi' || kind === 'aktual') && warna === 'realtime'
-  ? 'bg-[#E9F2CD] text-emerald-800 border-transparent'
-  : g.kelas;
 // Ukuran normal diperbesar: lencana ini sering menjadi satu-satunya pembeda
 // antara angka nyata dan angka contoh, jadi ia harus terbaca tanpa didekati.
 const ukuranKelas = ukuran === 'kecil' ? 'shrink-0 whitespace-nowrap text-[11px] px-1.5 py-0.5 gap-1' : 'text-base px-3.5 py-1.5 gap-1.5';
 ---
 
 <span
-  class:list={['inline-flex max-w-full items-center rounded-full border font-semibold leading-snug', kelasWarna, ukuranKelas]}
+  class:list={['inline-flex max-w-full items-center rounded-full border font-semibold leading-snug', g.kelas, ukuranKelas]}
+  role="note"
+  aria-label={`${g.label}. ${g.arti}`}
   title={sumber ? `${g.arti} Sumber: ${sumber}` : g.arti}
-  data-simulasi-realtime={kind === 'simulasi' && warna === 'realtime' ? 'true' : undefined}
 >
-  <span aria-hidden="true" class:list={['shrink-0', kind === 'simulasi' && warna === 'realtime' && 'hidden']}>
+  <span aria-hidden="true" class="shrink-0">
     {kind === 'aktual' ? '●' : kind === 'simulasi' ? '◆' : kind === 'prediksi' ? '◐' : '○'}
   </span>
   <span>{g.label}{sumber ? ` · ${sumber}` : ''}</span>
 </span>
-
-<style>
-  [data-simulasi-realtime='true']::before {
-    content: '';
-    width: 0.5rem;
-    height: 0.5rem;
-    flex: 0 0 auto;
-    border-radius: 9999px;
-    background: currentColor;
-  }
-</style>

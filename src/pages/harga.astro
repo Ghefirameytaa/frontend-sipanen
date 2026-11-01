@@ -3,6 +3,7 @@ import MainLayout from '../layouts/MainLayout.astro';
 import CatatanPanel from '../components/CatatanPanel.astro';
 import DataSourceBadge from '../components/DataSourceBadge.astro';
 import DataState from '../components/DataState.astro';
+import ForecastChart from '../components/ForecastChart.astro';
 import Ikon from '../components/Ikon.astro';
 import PriceTable from '../components/PriceTable.astro';
 import PilihanKomoditas from '../components/PilihanKomoditas.astro';
@@ -11,11 +12,8 @@ import { getCommodities, getLatestPrices, getPriceHistory, getPredictions, rupia
 import { wilayahAktif } from '../lib/wilayah';
 
 const wilayah = await wilayahAktif();
-const pilihanBagian = ['terkini', 'riwayat', 'prediksi'] as const;
 const bagianDiminta = Astro.url.searchParams.get('bagian');
-const bagian = pilihanBagian.includes(bagianDiminta as (typeof pilihanBagian)[number])
-  ? (bagianDiminta as (typeof pilihanBagian)[number])
-  : 'terkini';
+const bagian = bagianDiminta === 'riwayat' ? 'riwayat' : 'terkini';
 
 function tanggalValid(nilai: string | null): nilai is string {
   return nilai !== null && /^\d{4}-\d{2}-\d{2}$/.test(nilai);
@@ -39,62 +37,74 @@ const idKomoditasDiminta = Number(Astro.url.searchParams.get('komoditas'));
 const idKomoditas = Number.isInteger(idKomoditasDiminta) && idKomoditasDiminta > 0
   ? idKomoditasDiminta
   : undefined;
-const hariDiminta = Number(Astro.url.searchParams.get('hari'));
-const jumlahHari = [30, 60, 90].includes(hariDiminta) ? hariDiminta : 90;
+const hariKurva = 7;
 
 const [hasilHarga, hasilRiwayat, hasilPrediksi, hasilKomoditas] = wilayah.ok
   ? await Promise.all([
-      (bagian === 'terkini' || bagian === 'prediksi') ? getLatestPrices(wilayah.data.id) : null,
+      bagian === 'terkini' ? getLatestPrices(wilayah.data.id) : null,
       bagian === 'riwayat'
         ? getPriceHistory({ commodityId: idKomoditas, from: dari, to: sampai })
-        : bagian === 'prediksi'
+        : bagian === 'terkini'
           ? getPriceHistory({ commodityId: idKomoditas ?? 1, from: tanggalLalu(365), to: hariIni })
           : null,
-      bagian === 'prediksi' ? getPredictions({ regionId: wilayah.data.id, historyDays: 120 }) : null,
-      (bagian === 'riwayat' || bagian === 'prediksi') ? getCommodities(wilayah.data.id) : null,
+      bagian === 'terkini'
+        ? getPredictions({ regionId: wilayah.data.id, historyDays: hariKurva })
+        : null,
+      getCommodities(wilayah.data.id),
     ])
   : [null, null, null, null];
 
 const harga = hasilHarga?.ok ? hasilHarga.data : [];
 const riwayat = hasilRiwayat?.ok ? hasilRiwayat.data : [];
-const semuaPrediksi = hasilPrediksi?.ok ? hasilPrediksi.data : [];
+// Respons API dapat memuat titik kosong setelah perubahan format data.
+// Buang titik tanpa tanggal sebelum komponen grafik dan kartu membaca `date`.
+const semuaPrediksi = hasilPrediksi?.ok
+  ? (Array.isArray(hasilPrediksi.data) ? hasilPrediksi.data : [])
+      .filter((seri) => seri && Array.isArray(seri.forecast))
+      .map((seri) => ({
+        ...seri,
+        history: Array.isArray(seri.history) ? seri.history.filter((titik) => titik && typeof titik.date === 'string') : [],
+        forecast: seri.forecast.filter((titik) => titik && typeof titik.date === 'string'),
+      }))
+  : [];
 const komoditas = hasilKomoditas?.ok ? hasilKomoditas.data : [];
 const catatanHarga = hasilHarga?.ok ? hasilHarga.meta.notes ?? [] : [];
 const catatanPrediksi = hasilPrediksi?.ok ? hasilPrediksi.meta.notes ?? [] : [];
 
-// 4 Komoditas: 3 Cabai + 1 Tomat (seluruh model aktif)
-const daftarKomoditasPrediksi = [
-  { id: 1, name: 'Cabai Merah Keriting', variety: 'Keriting', siap: true },
-  { id: 2, name: 'Cabai Rawit Merah', variety: 'Rawit Merah', siap: true },
-  { id: 3, name: 'Cabai Rawit Hijau', variety: 'Rawit Hijau', siap: true },
-  { id: 4, name: 'Tomat', variety: 'Besar', siap: true },
-];
+const daftarKomoditasPrediksi = komoditas.map((item) => ({ id: item.id, name: item.name }));
 
 const komoditasDipilihId = idKomoditas ?? 1;
 const hargaAwalPrediksi = harga.find((item) => item.commodity_id === komoditasDipilihId) ?? null;
-const seriPilihan = semuaPrediksi.find((seri) => seri.commodity_id === komoditasDipilihId) ?? null;
 const komoditasDipilihInfo = daftarKomoditasPrediksi.find((k) => k.id === komoditasDipilihId) ?? {
   id: komoditasDipilihId,
   name: 'Komoditas',
   variety: '',
   siap: false,
 };
-const adaForecast = Boolean(seriPilihan && seriPilihan.forecast && seriPilihan.forecast.length > 0);
-const minBawah = adaForecast ? Math.min(...seriPilihan!.forecast.map((f) => f.lower)) : 0;
-const maxAtas = adaForecast ? Math.max(...seriPilihan!.forecast.map((f) => f.upper)) : 0;
-const rataTengah = adaForecast
-  ? Math.round(seriPilihan!.forecast.reduce((a, b) => a + b.predicted, 0) / seriPilihan!.forecast.length)
-  : 0;
-const tglAwal = adaForecast ? tanggalPanjang(seriPilihan!.forecast[0].date) : '';
-const tglAkhir = adaForecast ? tanggalPanjang(seriPilihan!.forecast[seriPilihan!.forecast.length - 1].date) : '';
-const seriGrafik = seriPilihan
-  ? { ...seriPilihan, forecast: seriPilihan.forecast.slice(0, jumlahHari) }
-  : null;
-const bagianMenu = [
-  { id: 'terkini', label: 'Harga hari ini', ikon: 'harga' },
-  { id: 'prediksi', label: 'Prediksi harga', ikon: 'prediksi' },
-];
-
+const panelPrediksi = daftarKomoditasPrediksi.map((item) => {
+  const seri = semuaPrediksi.find((data) => data.commodity_id === item.id);
+  const forecast = seri?.forecast ?? [];
+  const hariKerja = forecast.filter((titik) => {
+    const hari = new Date(`${titik.date}T00:00:00Z`).getUTCDay();
+    return hari >= 1 && hari <= 5;
+  }).slice(0, 5).map((titik) => ({
+    ...titik,
+    namaHari: titik.day_name || (titik.date ? ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'][new Date(titik.date).getUTCDay()] : 'Hari'),
+    curah: titik.curah_hujan_mm ?? 0,
+    peluang: titik.peluang_hujan ?? 0,
+    kondisi: titik.kondisi_cuaca || 'Normal',
+    pasar: titik.klasifikasi_pasar || 'Stabil',
+    catatan: titik.catatan_cuaca || '',
+  }));
+  const totalHujan = hariKerja.reduce((total, titik) => total + titik.curah, 0);
+  const rataHujan = hariKerja.length ? totalHujan / hariKerja.length : 0;
+  const seriGrafikAktif = seri ? {
+    ...seri,
+    history: seri.history.slice(-hariKurva),
+    forecast: forecast.slice(0, hariKurva),
+  } : null;
+  return { item, seri, forecast, hariKerja, totalHujan, rataHujan, seriGrafikAktif };
+});
 function jenisData(kind: string): 'aktual' | 'simulasi' | 'tidak_diketahui' {
   if (kind === 'aktual') return 'aktual';
   if (kind === 'simulasi') return 'simulasi';
@@ -120,19 +130,19 @@ function warnaKlasifikasi(teks?: string) {
   title="Harga"
   description="Harga Komoditas terkini, histori pasar, prediksi harga, dan saran tanam untuk Desa Blederan."
 >
-  <div class="space-y-8">
-    <header data-page-hero class="banner-harga relative isolate overflow-hidden rounded-panel bg-[#64902E] px-4 py-6 text-white shadow-lg sm:px-9 sm:py-10">
-      <img src="/images/harga-pasar.jpg" alt="Beragam sayur dan buah segar di pasar" class="absolute inset-0 z-0 h-full w-full object-cover opacity-35" width="1025" height="769" />
-      <div data-page-hero-overlay class="absolute inset-0 z-10 bg-gradient-to-r from-[#64902E] via-[#64902E]/90 to-[#64902E]/35" aria-hidden="true"></div>
+  <div class="space-y-10">
+    <header data-page-hero class="banner-harga relative isolate overflow-hidden rounded-panel bg-[#125112] px-4 py-6 text-white shadow-lg sm:px-9 sm:py-10">
+      <img src="/images/harga-pasar.jpg" alt="Tanaman cabai di lahan pertanian" class="absolute inset-0 z-0 h-full w-full object-cover opacity-90" width="1024" height="461" />
+      <div data-page-hero-overlay class="hero-photo-overlay absolute inset-0 z-10" aria-hidden="true"></div>
       <div class="relative z-20 flex flex-wrap items-end justify-between gap-5">
         <div class="relative max-w-3xl">
           <p data-page-hero-badge class="mb-3 inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#EAF2CF] px-2.5 py-1.5 text-[10px] font-bold uppercase leading-tight tracking-[0.04em] text-[#263238] sm:gap-2 sm:px-3 sm:text-sm sm:tracking-wide">
-            <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#64902E]" aria-hidden="true"></span>
+            <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#125112]" aria-hidden="true"></span>
             <span class="min-w-0">Pasar & perencanaan</span>
           </p>
-          <h1 class="font-display text-3xl font-semibold leading-tight sm:text-4xl">Harga komoditas</h1>
+          <h1 class="font-display text-2xl font-bold leading-tight tracking-tight text-white sm:text-3xl">Harga komoditas</h1>
           <p class="mt-3 text-base text-green-50 sm:text-lg">
-          Bandingkan catatan harga, lihat arah perkiraan, lalu rencanakan<br /> waktu tanam dengan informasi yang tersedia.
+          Bandingkan catatan harga, lihat arah perkiraan, lalu rencanakan<br class="hidden sm:inline" /> waktu tanam dengan informasi yang tersedia.
           </p>
         </div>
         {wilayah.ok && (
@@ -150,29 +160,6 @@ function warnaKlasifikasi(teks?: string) {
       </div>
     </header>
 
-    <nav aria-label="Bagian harga">
-      <ul class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {bagianMenu.map((item) => (
-          <li>
-            <a
-              href={`/harga?bagian=${item.id}`}
-              data-astro-prefetch="hover"
-              aria-current={bagian === item.id ? 'page' : undefined}
-              class:list={[
-                'inline-flex w-full min-h-sentuh items-center justify-center gap-2 rounded-full border px-4 py-3 text-center font-semibold shadow-[0_4px_14px_rgba(100,144,46,0.16)] transition-all duration-200 hover:-translate-y-px hover:shadow-[0_8px_20px_rgba(100,144,46,0.24)]',
-                bagian === item.id
-                  ? 'border-[#CFEB73] bg-[#CFEB73] text-[#263238]'
-                  : 'border-kertas-garis bg-white text-tinta-kedua hover:border-sipanen-600 hover:bg-sipanen-50 hover:text-sipanen-900',
-              ]}
-            >
-              <Ikon nama={item.ikon} ukuran={20} kelas="block" />
-              {item.label}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </nav>
-
     {!wilayah.ok && (
       <DataState
         jenis={wilayah.error.code === 'tidak_terhubung' ? 'galat' : 'kosong'}
@@ -182,31 +169,25 @@ function warnaKlasifikasi(teks?: string) {
     )}
 
     {wilayah.ok && bagian === 'terkini' && (
-      <div class="space-y-8">
-        <section aria-labelledby="judul-harga-terkini" class="space-y-6">
+      <div class="space-y-10">
+        <section aria-labelledby="judul-harga-terkini" class="space-y-8 px-1.5 sm:px-0">
           <!-- Header Bar -->
-          <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <div class="mb-2 flex flex-wrap items-center gap-2">
-                <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
-                  <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  Realtime Wonosobo
+                <span class="inline-flex items-center gap-1.5 rounded-full border border-[#D5E3A8] bg-[#EAF2CF] px-2.5 py-1 text-xs font-bold text-[#263238]">
+                  Pasar Wonosobo
                 </span>
-                <span class="text-xs text-tinta-kedua font-medium">
-                  Update Otomatis: 06:00 & 12:00 WIB
+                <span class="basis-full text-xs leading-relaxed text-tinta-kedua font-medium sm:basis-auto sm:leading-normal">
+                  Pembaruan terjadwal: 06.00 WIB
                 </span>
               </div>
-              <h2 id="judul-harga-terkini" class="font-display text-3xl font-bold tracking-tight text-tinta-utama">
+              <h2 id="judul-harga-terkini" class="font-display text-2xl font-bold leading-tight tracking-tight text-tinta-utama sm:text-3xl">
                 Harga Pasar Hari Ini
               </h2>
-              <p class="mt-1 text-sm text-tinta-kedua">
-                Pantauan 4 komoditas hortikultura utama acuan Pasar Induk Kabupaten Wonosobo.
+              <p class="mt-2 text-xs leading-relaxed text-tinta-kedua sm:text-sm sm:leading-normal">
+                Harga hortikultura yang tersedia dari Pasar Induk Kabupaten Wonosobo.
               </p>
-            </div>
-
-            <div class="hidden sm:inline-flex items-center gap-2 rounded-xl border border-stone-200/80 bg-white px-3.5 py-2 text-xs font-semibold text-tinta-kedua shadow-sm">
-              <Ikon nama="jam" ukuran={16} kelas="text-emerald-600" />
-              <span>Otomatis Sinkron di Server</span>
             </div>
           </div>
 
@@ -221,12 +202,12 @@ function warnaKlasifikasi(teks?: string) {
               jenis="kosong"
               judul="Belum ada catatan harga"
               pesan="Belum ada harga untuk ditampilkan pada wilayah ini."
-              saran="Pengelola perlu menjalankan pengambilan data harga terlebih dahulu."
+              saran="Database belum berisi harga. Jalankan pipeline ml-pipeline/main_job.py setelah menyamakan konfigurasi database dengan backend-go/.env."
             />
           ) : (
             <>
               <PriceTable harga={harga} />
-              {catatanHarga.length > 0 && <CatatanPanel catatan={catatanHarga} />}
+              {catatanHarga.length > 0 ? <CatatanPanel catatan={catatanHarga} /> : null}
             </>
           )}
         </section>
@@ -234,13 +215,13 @@ function warnaKlasifikasi(teks?: string) {
     )}
 
     {wilayah.ok && bagian === 'riwayat' && (
-      <section aria-labelledby="judul-riwayat-lengkap" class="space-y-5">
+      <section aria-labelledby="judul-riwayat-lengkap" class="space-y-7">
         <div>
           <p class="mb-1 text-sm font-bold uppercase tracking-wider text-sipanen-800">Pergerakan pasar</p>
-          <h2 id="judul-riwayat-lengkap" class="font-display text-3xl font-semibold">Riwayat harga</h2>
+          <h2 id="judul-riwayat-lengkap" class="font-display text-2xl font-bold leading-tight tracking-tight text-tinta-utama sm:text-3xl">Riwayat harga</h2>
           <p class="mt-2 text-tinta-kedua">Pilih komoditas dan rentang tanggal untuk menelusuri catatan pasar.</p>
         </div>
-        <form action="/harga" method="get" class="grid gap-4 rounded-card border border-kertas-garis bg-white p-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end">
+        <form action="/harga" method="get" class="grid gap-5 rounded-card border border-kertas-garis bg-white p-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end">
           <input type="hidden" name="bagian" value="riwayat" />
           <label class="grid gap-1 font-semibold" for="komoditas-riwayat">
             Komoditas
@@ -257,7 +238,7 @@ function warnaKlasifikasi(teks?: string) {
             Sampai tanggal
             <input id="riwayat-sampai" type="date" name="sampai" value={sampai} max={hariIni} class="min-h-sentuh rounded-control border border-kertas-garis bg-white px-3 font-normal" />
           </label>
-          <button type="submit" class="inline-flex min-h-sentuh items-center justify-center gap-2 rounded-control bg-sipanen-700 px-5 font-bold text-white transition-colors hover:bg-sipanen-800">
+          <button type="submit" class="inline-flex min-h-sentuh items-center justify-center gap-2 rounded-control border border-[#B9D0AD] bg-[#DCE9D2] px-5 font-bold text-[#125112] transition-colors hover:bg-[#C5D9BC]">
             <Ikon nama="banding" ukuran={20} />
             Terapkan filter
           </button>
@@ -279,7 +260,7 @@ function warnaKlasifikasi(teks?: string) {
                   <th scope="col" class="px-4 py-3">Komoditas</th>
                   <th scope="col" class="px-4 py-3">Pasar</th>
                   <th scope="col" class="px-4 py-3">Tanggal</th>
-                  <th scope="col" class="px-4 py-3 text-right">Harga</th>
+                  <th scope="col" class="px-4 py-3 text-left">Harga</th>
                   <th scope="col" class="px-4 py-3">Asal data</th>
                 </tr>
               </thead>
@@ -289,8 +270,8 @@ function warnaKlasifikasi(teks?: string) {
                     <th scope="row" class="px-4 py-3 font-semibold">{item.commodity}</th>
                     <td class="px-4 py-3">{item.market}</td>
                     <td class="px-4 py-3 whitespace-nowrap">{tanggalPanjang(item.date)}</td>
-                    <td class="px-4 py-3 text-right font-bold tabular-nums whitespace-nowrap">{rupiah(item.price)}</td>
-                    <td class="px-4 py-3"><DataSourceBadge kind={jenisData(item.data_kind)} sumber={item.source} ukuran="kecil" /></td>
+                    <td class="px-4 py-3 text-left font-bold tabular-nums whitespace-nowrap">{rupiah(item.price)}</td>
+                    <td class="px-4 py-3"><DataSourceBadge kind={jenisData(item.data_kind)} ukuran="kecil" /></td>
                   </tr>
                 ))}
               </tbody>
@@ -300,15 +281,14 @@ function warnaKlasifikasi(teks?: string) {
       </section>
     )}
 
-    {wilayah.ok && bagian === 'prediksi' && (
-      <section aria-labelledby="judul-prediksi" class="space-y-6">
+    {wilayah.ok && bagian === 'terkini' && (
+      <section id="tren-prediksi" aria-labelledby="judul-prediksi" class="scroll-mt-24 space-y-8 sm:scroll-mt-28">
         <header class="max-w-3xl">
-          <p class="mb-1 text-sm font-bold uppercase tracking-wider text-sipanen-800">Integrasi API pangan</p>
-          <h2 id="judul-prediksi" class="font-display text-3xl font-bold tracking-tight">Tren &amp; Prediksi Harga Pasar Komoditas</h2>
-          <p class="mt-2 text-tinta-kedua">Pantau catatan harga aktual. Prediksi akan ditampilkan bila hasil model tersedia.</p>
+          <p class="mb-1 text-sm font-bold uppercase tracking-wider text-sipanen-800">Pantauan harga</p>
+          <h2 id="judul-prediksi" class="font-display text-2xl font-bold leading-tight tracking-tight text-tinta-utama sm:text-3xl">Tren dan Prediksi Harga Komoditas</h2>
         </header>
         {!hasilPrediksi || !hasilPrediksi.ok ? (
-          <div class="space-y-5">
+          <div class="space-y-6">
             <DataState
               jenis={hasilPrediksi?.ok === false && hasilPrediksi.error.code === 'tidak_terhubung' ? 'galat' : 'kosong'}
               pesan={hasilPrediksi && !hasilPrediksi.ok ? hasilPrediksi.error.message : 'Prediksi belum dapat diambil.'}
@@ -318,233 +298,93 @@ function warnaKlasifikasi(teks?: string) {
             <TrenHarga komoditas={komoditasDipilihInfo.name} riwayat={riwayat} hargaTerkini={hargaAwalPrediksi} />
           </div>
         ) : semuaPrediksi.length === 0 ? (
-          <div class="space-y-5">
+          <div class="space-y-6">
+              <DataState
+                jenis="kosong"
+                judul="Data harga dan prediksi belum tersedia"
+                pesan="Backend berjalan, tetapi database belum berisi riwayat harga atau hasil prediksi."
+                saran="Jalankan pipeline ml-pipeline/main_job.py setelah menyamakan konfigurasi database dengan backend-go/.env."
+              />
               <PilihanKomoditas items={daftarKomoditasPrediksi} selectedId={komoditasDipilihId} />
               <TrenHarga komoditas={komoditasDipilihInfo.name} riwayat={riwayat} hargaTerkini={hargaAwalPrediksi} />
           </div>
         ) : (
-          <div class="space-y-6">
+          <div class="space-y-8">
             <PilihanKomoditas items={daftarKomoditasPrediksi} selectedId={komoditasDipilihId} />
 
-            {seriPilihan && adaForecast ? (
-              <div class="rounded-card border-2 border-sipanen-600 bg-white p-5 shadow-sm sm:p-7">
-                <div class="flex flex-wrap items-center justify-between gap-3 border-b border-kertas-garis pb-4">
-                  <div>
-                    <span class="inline-flex items-center gap-1.5 rounded-full bg-[#EAF2CF] px-3 py-1 text-xs font-bold uppercase tracking-wider text-[#263238]">
-                      Perkiraan Pasar
-                    </span>
-                    <h3 class="mt-2 font-display text-2xl font-bold text-tinta-utama sm:text-3xl">
-                      {seriPilihan.commodity_name} <span class="text-lg font-normal text-tinta-kedua">({seriPilihan.variety})</span>
-                    </h3>
-                    <p class="mt-1 text-sm text-tinta-kedua">
-                      Periode perkiraan: <strong class="text-tinta-utama">{tglAwal} s.d. {tglAkhir}</strong>
-                    </p>
-                  </div>
-                  {seriPilihan.current_price > 0 && (
-                    <div class="rounded-xl border border-kertas-garis bg-sipanen-50/70 px-4 py-2.5 text-right sm:min-w-44">
-                      <p class="text-xs font-medium text-tinta-kedua">Harga Terakhir Tercatat</p>
-                      <p class="text-lg font-extrabold text-sipanen-900 tabular-nums">
-                        {rupiah(seriPilihan.current_price)} <span class="text-xs font-normal text-tinta-kedua">/ {seriPilihan.unit}</span>
-                      </p>
-                      <p class="text-[11px] text-tinta-redup">{tanggalPanjang(seriPilihan.current_price_date)}</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Kotak Utama Rentang Harga */}
-                <div class="mt-6 rounded-2xl border border-[#CFEB73] bg-gradient-to-br from-[#F5FBE6] via-[#EBF6D0] to-white p-6 text-center sm:p-8">
-                  <p class="text-xs font-bold uppercase tracking-widest text-sipanen-800">Perkiraan Rentang Harga</p>
-                  <div class="mt-2 flex flex-wrap items-baseline justify-center gap-2">
-                    <span class="font-display text-3xl font-black text-sipanen-950 sm:text-5xl tabular-nums">
-                      {rupiah(minBawah)} – {rupiah(maxAtas)}
-                    </span>
-                    <span class="text-lg font-semibold text-tinta-kedua">/ {seriPilihan.unit}</span>
-                  </div>
-                  <p class="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-tinta-utama sm:text-base">
-                    Harga <strong>{seriPilihan.commodity_name}</strong> diperkirakan bergerak di antara angka terendah <strong>{rupiah(minBawah)}</strong> dan tertinggi <strong>{rupiah(maxAtas)}</strong>, dengan nilai tengah rata-rata sekitar <strong>{rupiah(rataTengah)}</strong> per {seriPilihan.unit}.
-                  </p>
-                </div>
-
-                {/* Tiga Pilar Angka */}
-                <div class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <div class="rounded-xl border border-kertas-garis bg-white p-4 shadow-sm">
-                    <p class="text-xs font-semibold uppercase text-tinta-kedua">Batas Terendah</p>
-                    <p class="mt-1 text-2xl font-bold text-amber-900 tabular-nums">{rupiah(minBawah)}</p>
-                    <p class="mt-1 text-xs text-tinta-redup">Kemungkinan harga minimum</p>
-                  </div>
-                  <div class="rounded-xl border border-sipanen-300 bg-sipanen-50/60 p-4 shadow-sm">
-                    <p class="text-xs font-semibold uppercase text-sipanen-800">Perkiraan Rata-Rata</p>
-                    <p class="mt-1 text-2xl font-bold text-sipanen-900 tabular-nums">{rupiah(rataTengah)}</p>
-                    <p class="mt-1 text-xs text-tinta-redup">Nilai tengah perkiraan model</p>
-                  </div>
-                  <div class="rounded-xl border border-kertas-garis bg-white p-4 shadow-sm">
-                    <p class="text-xs font-semibold uppercase text-tinta-kedua">Batas Tertinggi</p>
-                    <p class="mt-1 text-2xl font-bold text-emerald-900 tabular-nums">{rupiah(maxAtas)}</p>
-                    <p class="mt-1 text-xs text-tinta-redup">Kemungkinan harga maksimum</p>
-                  </div>
-                </div>
-
-                {/* Rincian Prediksi Per Hari & Cuaca Open-Meteo 5 Hari (Senin - Jumat) */}
-                <div class="mt-8 border-t border-kertas-garis pt-6">
-                  <div class="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <div class="flex items-center gap-2">
-                        <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-blue-900">
-                          <Ikon nama="hujan" ukuran={14} kelas="text-blue-700" />
-                          Open-Meteo & XGBoost
-                        </span>
-                        <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-800">
-                          5 Hari Kerja (Senin – Jumat)
-                        </span>
+            <div class="space-y-10">
+              {panelPrediksi.map(({ item, seri, forecast, hariKerja, totalHujan, rataHujan, seriGrafikAktif }) => (
+                  <div data-panel-prediksi={item.id} hidden={item.id !== komoditasDipilihId}>
+                    {seri && forecast.length > 0 && seriGrafikAktif ? (
+                      <div class="space-y-10">
+                        <ForecastChart
+                          seri={seriGrafikAktif}
+                          hariKerja={hariKerja}
+                        />
+                        <section class="rounded-card border border-kertas-garis bg-white p-4 shadow-sm sm:p-6" aria-labelledby={`judul-prakiraan-${item.id}`}>
+                          <header class="flex flex-col gap-4 border-b border-kertas-garis pb-4 lg:flex-row lg:items-start lg:justify-between">
+                            <div class="min-w-0">
+                              <span class="inline-flex items-center rounded-full bg-[#EAF2CF] px-3 py-1 text-xs font-bold text-[#263238]">5 Hari Kerja</span>
+                              <h3 id={`judul-prakiraan-${item.id}`} class="mt-2 font-display text-xl font-bold leading-tight tracking-tight text-tinta-utama sm:text-2xl">Harga dan cuaca harian</h3>
+                              <p class="mt-1 max-w-2xl text-sm leading-relaxed text-tinta-kedua">Lihat perkiraan harga, kondisi cuaca, dan peluang hujan untuk setiap hari.</p>
+                            </div>
+                            {seri.weather_summary && (
+                              <div class="flex shrink-0 items-center gap-3 rounded-xl border border-[#64902E] bg-[#E6EFE6] px-3 py-2.5 text-[#263238] dark:border-[#64902E] dark:bg-[#263238] dark:text-[#F8F9FA] sm:px-4">
+                                <span class="rounded-lg bg-[#C0F283] p-2 text-[#125112] dark:bg-[#64902E] dark:text-[#F8F9FA]" aria-hidden="true"><Ikon nama="hujan" ukuran={18} /></span>
+                                <div>
+                                  <p class="text-xs font-semibold text-[#125112] dark:text-[#C0F283]">Hujan dalam 5 hari</p>
+                                  <p class="text-sm font-bold">{totalHujan} mm total<span class="font-normal text-[#263238] dark:text-[#E2E7EA]"> · {rataHujan.toFixed(1)} mm/hari</span></p>
+                                </div>
+                              </div>
+                            )}
+                          </header>
+                          {seri.weather_summary?.rekomendasi_petani && (
+                            <div class="mt-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-sm leading-relaxed text-amber-950 sm:p-4">
+                              <span class="mt-0.5 shrink-0 rounded-lg bg-amber-100 p-1.5 text-amber-800" aria-hidden="true"><Ikon nama="peringatan" ukuran={18} /></span>
+                              <div class="min-w-0">
+                                <p class="font-bold text-amber-900">Catatan cuaca dan pasokan � {seri.weather_summary.status_umum}</p>
+                                <p class="mt-1 text-amber-900/90">{seri.weather_summary.rekomendasi_petani}</p>
+                              </div>
+                            </div>
+                          )}
+                          <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                            {hariKerja.map((f) => (
+                                <article class="flex min-w-0 flex-col gap-3 rounded-xl border border-kertas-garis bg-white p-3 shadow-sm sm:p-4">
+                                  <header class="flex items-center justify-between gap-2 border-b border-kertas-garis pb-2.5">
+                                    <span class="rounded-lg bg-[#125112] px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-white">{f.namaHari}</span>
+                                    <time datetime={f.date} class="text-xs font-medium text-tinta-kedua">{tanggalPanjang(f.date).replace(/ \d{4}$/, '')}</time>
+                                  </header>
+                                  <span class:list={['inline-flex w-fit max-w-full rounded-full border px-2.5 py-1 text-xs font-semibold leading-tight', warnaKlasifikasi(f.pasar)]}>{f.pasar}</span>
+                                  <div>
+                                    <p class="text-xs font-semibold text-tinta-kedua">Rentang harga per hari</p>
+                                    <p class="mt-0.5 whitespace-nowrap font-display text-base font-extrabold leading-tight tabular-nums text-sipanen-950 sm:text-sm xl:text-base">{rupiah(f.lower)} – {rupiah(f.upper)}</p>
+                                    <p class="text-xs text-tinta-redup">per {seri.unit}</p>
+                                  </div>
+                                  <div class="mt-auto rounded-xl border border-sky-100 bg-sky-50/70 p-3 text-blue-950">
+                                    <div class="flex items-center justify-between gap-2">
+                                      <span class="inline-flex items-center gap-1.5 text-sm font-bold"><Ikon nama="hujan" ukuran={16} kelas="shrink-0 text-blue-700" />{f.curah} mm</span>
+                                      <span class="rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-900">Peluang {f.peluang}%</span>
+                                    </div>
+                                    <p class="mt-1.5 text-sm font-medium">{f.kondisi}</p>
+                                    {f.catatan && <p class="mt-1 text-xs leading-relaxed text-blue-900/80">{f.catatan}</p>}
+                                  </div>
+                                </article>
+                            ))}
+                          </div>
+                        </section>
                       </div>
-                      <h4 class="mt-2 font-display text-xl font-bold text-tinta-utama sm:text-2xl">
-                        Prediksi Harga & Prakiraan Curah Hujan Harian
-                      </h4>
-                      <p class="mt-1 text-sm text-tinta-kedua">
-                        Proyeksi harga per hari disandingkan dengan estimasi curah hujan satelit Open-Meteo untuk Kecamatan Mojotengah.
-                      </p>
-                    </div>
-                    {seriPilihan.weather_summary && (
-                      <div class="flex items-center gap-3 rounded-2xl border border-blue-200 bg-blue-50/90 px-4 py-3 text-xs text-blue-950 sm:text-sm shadow-sm">
-                        <div class="rounded-xl bg-blue-100 p-2 text-blue-700 shrink-0">
-                          <Ikon nama="hujan" ukuran={20} />
-                        </div>
-                        <div>
-                          <p class="text-[11px] font-semibold uppercase tracking-wider text-blue-700">Akumulasi Cuaca 5 Hari</p>
-                          <p class="text-sm font-bold text-blue-950">
-                            Total {seriPilihan.weather_summary.total_curah_hujan_mm} mm <span class="font-normal text-blue-800">(Rata-rata {seriPilihan.weather_summary.rata_rata_hujan_harian_mm} mm/hari)</span>
-                          </p>
-                        </div>
+                    ) : (
+                      <div class="rounded-card border-2 border-dashed border-amber-300 bg-amber-50/70 p-8 text-center sm:p-12">
+                        <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 text-amber-800 shadow-sm"><Ikon nama="jam" ukuran={32} /></div>
+                        <span class="mt-4 inline-flex items-center gap-1.5 rounded-full bg-amber-200/90 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-amber-950">Tahap Pelatihan Data � Segera Hadir</span>
+                        <h3 class="mt-3 font-display text-2xl font-bold leading-tight tracking-tight text-amber-950 sm:text-3xl">Model Prediksi {item.name} Sedang Disiapkan</h3>
+                        <p class="mx-auto mt-2.5 max-w-xl text-sm leading-relaxed text-amber-900/90 sm:text-base">Model AI prediksi harga untuk komoditas <strong>{item.name}</strong> sedang dalam proses sinkronisasi.</p>
                       </div>
                     )}
                   </div>
-
-                  {/* Ringkasan Rekomendasi Petani & Status Pasar */}
-                  {seriPilihan.weather_summary?.rekomendasi_petani && (
-                    <div class="mt-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-xs leading-relaxed text-amber-950 sm:text-sm">
-                      <div class="rounded-lg bg-amber-100 p-1.5 text-amber-800 shrink-0 mt-0.5">
-                        <Ikon nama="peringatan" ukuran={18} />
-                      </div>
-                      <div>
-                        <div class="flex items-center gap-2">
-                          <span class="font-bold text-amber-900">Peringatan Dinamika Pasokan & Cuaca</span>
-                          <span class="rounded bg-amber-200/80 px-2 py-0.5 text-[11px] font-bold text-amber-900">
-                            {seriPilihan.weather_summary.status_umum}
-                          </span>
-                        </div>
-                        <p class="mt-1 text-amber-900/90">{seriPilihan.weather_summary.rekomendasi_petani}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 5 Kartu Harian */}
-                  <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-                    {seriPilihan.forecast.slice(0, 5).map((f) => {
-                      const hariIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-                      const namaHari = f.day_name || (f.date ? hariIndo[new Date(f.date).getDay()] : 'Hari');
-                      const curah = f.curah_hujan_mm ?? 0;
-                      const peluang = f.peluang_hujan ?? 0;
-                      const kondisi = f.kondisi_cuaca || 'Normal';
-                      const pasar = f.klasifikasi_pasar || '🟢 Normal / Stabil';
-                      const catatan = f.catatan_cuaca || '';
-
-                      return (
-                        <div class="relative flex flex-col justify-between rounded-2xl border border-kertas-garis bg-white p-4 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all duration-200 hover:-translate-y-1 hover:border-sipanen-500 hover:shadow-md">
-                          {/* Kepala Kartu: Hari & Tanggal */}
-                          <div class="border-b border-kertas-garis/80 pb-3">
-                            <div class="flex items-center justify-between">
-                              <span class="rounded-lg bg-sipanen-100/80 px-2.5 py-1 text-xs font-black uppercase tracking-wider text-sipanen-900">
-                                {namaHari}
-                              </span>
-                              <span class="text-xs font-semibold text-tinta-redup">
-                                {tanggalPanjang(f.date).replace(/ \d{4}$/, '')}
-                              </span>
-                            </div>
-                            <div class="mt-2.5">
-                              <span class:list={[
-                                'inline-block max-w-full rounded-md border px-2 py-0.5 text-[11px] font-semibold leading-tight break-words',
-                                warnaKlasifikasi(pasar)
-                              ]}>
-                                {pasar}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Bagian Harga Prediksi */}
-                          <div class="my-4">
-                            <p class="text-[11px] font-bold uppercase tracking-wider text-tinta-kedua">Prediksi Harga</p>
-                            <p class="mt-1 font-display text-2xl font-black text-sipanen-950 tabular-nums">
-                              {rupiah(f.predicted)}
-                            </p>
-                            <p class="text-xs text-tinta-redup">per {seriPilihan.unit}</p>
-                          </div>
-
-                          {/* Bagian Prakiraan Cuaca Open-Meteo */}
-                          <div class="rounded-xl border border-sky-100 bg-gradient-to-br from-sky-50/80 via-blue-50/40 to-white p-3">
-                            <div class="flex items-center justify-between">
-                              <div class="flex items-center gap-1.5 text-blue-900 font-bold text-xs">
-                                <Ikon nama="hujan" ukuran={16} kelas="text-blue-600 shrink-0" />
-                                <span>{curah} mm</span>
-                              </div>
-                              <span class="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-800">
-                                Peluang {peluang}%
-                              </span>
-                            </div>
-                            <p class="mt-2 font-semibold text-xs text-blue-950">
-                              {kondisi}
-                            </p>
-                            {catatan && (
-                              <p class="mt-1.5 text-[11px] leading-snug text-blue-900/80">
-                                {catatan}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <p class="mt-4 text-right text-xs text-tinta-redup">
-                    * Sumber prakiraan cuaca: <strong>Open-Meteo Weather API</strong> (Stasiun Sentra Mojotengah -7.3106, 109.9147). Model prediksi: <strong>XGBoost Regressor</strong>.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div class="rounded-card border-2 border-dashed border-amber-300 bg-amber-50/70 p-8 text-center sm:p-12">
-                <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 text-amber-800 shadow-sm">
-                  <Ikon nama="jam" ukuran={32} />
-                </div>
-                <span class="mt-4 inline-flex items-center gap-1.5 rounded-full bg-amber-200/90 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-amber-950">
-                  Tahap Pelatihan Data · Segera Hadir
-                </span>
-                <h3 class="mt-3 font-display text-2xl font-bold text-amber-950 sm:text-3xl">
-                  Model Prediksi {komoditasDipilihInfo.name} Sedang Disiapkan
-                </h3>
-                <p class="mx-auto mt-2.5 max-w-xl text-sm leading-relaxed text-amber-900/90 sm:text-base">
-                  Model AI prediksi harga untuk komoditas <strong>{komoditasDipilihInfo.name}</strong> sedang dalam proses sinkronisasi. Saat ini, prediksi 5 hari dengan satelit cuaca Open-Meteo telah aktif dan siap digunakan untuk <strong>cabai dan tomat</strong>.
-                </p>
-                <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
-                  <a href="/harga?bagian=prediksi&komoditas=1" class="inline-flex min-h-sentuh items-center gap-2 rounded-xl border border-kertas-garis bg-white px-4 py-2.5 text-xs font-bold text-sipanen-900 shadow-sm transition hover:border-sipanen-500 hover:bg-sipanen-50">
-                    <Ikon nama="cabai-keriting" ukuran={16} />
-                    Cabai Merah Keriting
-                  </a>
-                  <a href="/harga?bagian=prediksi&komoditas=2" class="inline-flex min-h-sentuh items-center gap-2 rounded-xl border border-kertas-garis bg-white px-4 py-2.5 text-xs font-bold text-sipanen-900 shadow-sm transition hover:border-sipanen-500 hover:bg-sipanen-50">
-                    <Ikon nama="cabai-rawit-merah" ukuran={16} />
-                    Cabai Rawit Merah
-                  </a>
-                  <a href="/harga?bagian=prediksi&komoditas=3" class="inline-flex min-h-sentuh items-center gap-2 rounded-xl border border-kertas-garis bg-white px-4 py-2.5 text-xs font-bold text-sipanen-900 shadow-sm transition hover:border-sipanen-500 hover:bg-sipanen-50">
-                    <Ikon nama="cabai-rawit-hijau" ukuran={16} />
-                    Cabai Rawit Hijau
-                  </a>
-                  <a href="/harga?bagian=prediksi&komoditas=4" class="inline-flex min-h-sentuh items-center gap-2 rounded-xl border border-kertas-garis bg-white px-4 py-2.5 text-xs font-bold text-sipanen-900 shadow-sm transition hover:border-sipanen-500 hover:bg-sipanen-50">
-                    <Ikon nama="tomat" ukuran={16} />
-                    Tomat
-                  </a>
-                </div>
-              </div>
-            )}
-
-            {catatanPrediksi.length > 0 && <CatatanPanel catatan={catatanPrediksi} />}
+            ))}
+            </div>
+            {catatanPrediksi.length > 0 ? <CatatanPanel catatan={catatanPrediksi} /> : null}
           </div>
         )}
       </section>

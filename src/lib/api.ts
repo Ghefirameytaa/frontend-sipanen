@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 /**
  * api.ts — Klien API SiPanen
  *
@@ -90,22 +91,80 @@ export function pesanUntuk(error: ErrorBody): string {
 
 // ── Pemanggilan dasar ─────────────────────────────────────────────────────────
 
+
+function rahasiaApi(): string {
+  const runtime =
+    typeof process !== "undefined" && process.env
+      ? process.env.API_SECRET_KEY
+      : undefined;
+  return (
+    (runtime && runtime.trim()) ||
+    "sipanen-secure-hmac-key-blederan-2026"
+  );
+}
+
+const API_SECRET_KEY = rahasiaApi();
+
+function signRequest(
+  method: string,
+  path: string,
+  params?: Params
+): { sig: string; t: number; queryPairs: [string, string][] } {
+  const t = Math.floor(Date.now() / 1000);
+  const cleanPairs: [string, string][] = [];
+
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== null && v !== "") {
+        const kLower = k.toLowerCase();
+        if (
+          kLower !== "_sig" &&
+          kLower !== "sig" &&
+          kLower !== "hash" &&
+          kLower !== "_t" &&
+          kLower !== "t" &&
+          kLower !== "timestamp"
+        ) {
+          cleanPairs.push([k, String(v)]);
+        }
+      }
+    }
+  }
+
+  cleanPairs.sort((a, b) => a[0].localeCompare(b[0]));
+  const canonicalQuery = cleanPairs
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join("&");
+
+  const apiPath = path.startsWith("/api")
+    ? path
+    : `/api${path.startsWith("/") ? path : `/${path}`}`;
+  const payload = `${method.toUpperCase()}|${apiPath}|${canonicalQuery}|${t}`;
+
+  const sig = crypto
+    .createHmac("sha256", API_SECRET_KEY)
+    .update(payload)
+    .digest("hex");
+
+  return { sig, t, queryPairs: cleanPairs };
+}
+
 type Params = Record<string, string | number | undefined | null>;
 
 async function panggil<T>(
   path: string,
   params?: Params,
 ): Promise<ApiResult<T>> {
+  const { sig, t, queryPairs } = signRequest("GET", path, params);
+
   let url: string;
   try {
     const u = new URL(`${API_BASE}${path}`);
-    if (params) {
-      for (const [k, v] of Object.entries(params)) {
-        if (v !== undefined && v !== null && v !== "") {
-          u.searchParams.set(k, String(v));
-        }
-      }
+    for (const [k, v] of queryPairs) {
+      u.searchParams.set(k, v);
     }
+    u.searchParams.set("_sig", sig);
+    u.searchParams.set("_t", String(t));
     url = u.toString();
   } catch {
     return {
@@ -120,7 +179,11 @@ async function panggil<T>(
   let res: Response;
   try {
     res = await fetch(url, {
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        "X-SiPanen-Signature": sig,
+        "X-SiPanen-Timestamp": String(t),
+      },
       cache: "no-store",
     });
   } catch (e) {
@@ -172,11 +235,17 @@ async function panggil<T>(
 }
 
 async function panggilJson<T>(path: string, body: unknown): Promise<ApiResult<T>> {
-  const url = `${API_BASE}${path}`;
+  const { sig, t } = signRequest("POST", path);
+  const url = `${API_BASE}${path}?_sig=${sig}&_t=${t}`;
   try {
     const response = await fetch(url, {
       method: "POST",
-      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-SiPanen-Signature": sig,
+        "X-SiPanen-Timestamp": String(t),
+      },
       body: JSON.stringify(body),
       cache: "no-store",
     });
@@ -192,12 +261,42 @@ async function panggilJson<T>(path: string, body: unknown): Promise<ApiResult<T>
 
 export interface PlantingMonthRecommendation {
   bulan_tanam: number; nama_bulan: string; perkiraan_bulan_panen: string;
-  skor_kelayakan: number; kategori: string; alasan_cuaca: string; alasan_harga: string;
+  durasi_hst?: number; satuan_durasi?: string;
+  skor_kelayakan: number; skor_iklim_murni?: number;
+  status_tanam?: string; kategori: string;
+  tren_harga_panen?: string; indeks_harga_panen_persen?: number;
+  strategi_mitra?: string; alasan_lengkap?: string;
+  alasan_cuaca: string; alasan_harga: string;
   risiko_gagal_panen_persen: number; estimasi_laba_bersih_rp: number;
+  iklim?: {
+    hujan_mm: number; kategori_hujan: string; suhu_c: number;
+    hari_hujan: number; kelembapan_persen?: number;
+  };
+  fase?: Record<string, {
+    hari_mulai_hst: number; hari_selesai_hst: number; durasi_hari: number;
+    nama_bulan_dominan: string; hujan_mm: number; suhu_c: number;
+    hari_hujan: number; kelembapan_persen: number; skor_fase: number;
+  }>;
+  musim?: {
+    kategori: string; label: string; keandalan_pola_persen: number;
+    rincian_keandalan: string; kemarau_basah: boolean;
+    saran_umum: string; saran_komoditas: string;
+  };
 }
 export interface PlantingSchedule {
-  status: string; komoditas: string; luas_ubin: number; bulan_emas_terbaik: string;
+  status: string; komoditas: string; key_komoditas?: string;
+  durasi_hst?: number; satuan_umur_tanam?: string;
+  luas_ubin: number; bulan_emas_terbaik: string;
+  jadwal_update_otomatis?: string; terakhir_diperbarui_wib?: string;
+  ringkasan_musim?: Record<string, any>;
   rekomendasi_12_bulan: PlantingMonthRecommendation[];
+}
+export interface FullKalenderTanam {
+  metadata: Record<string, any>;
+  ringkasan_musim: Record<string, any>;
+  kalender: Array<Record<string, any>>;
+  jadwal_update_otomatis?: string;
+  terakhir_diperbarui_wib?: string;
 }
 export interface WeatherWarning {
   status: string; level_peringatan: string; deskripsi_bahaya: string;
@@ -218,8 +317,14 @@ export interface PlantingPriceForecast {
   arah_tren: string; pasar_rujukan: string[];
 }
 
+export function getFullKalenderTanam(opts?: { komoditas?: string; bulan?: number }) {
+  return panggil<FullKalenderTanam>("/kalender", {
+    komoditas: opts?.komoditas,
+    bulan: opts?.bulan,
+  });
+}
 export function getPlantingSchedule(input: { komoditas: string; luas_ubin: number; bulan_target_tanam?: number }) {
-  return panggilJson<PlantingSchedule>("/kalender-tanam/planting-schedule", input);
+  return panggilJson<PlantingSchedule>("/kalender/schedule", input);
 }
 export function getWeatherWarning(input: { tanggal: string; curah_hujan_mm: number; kelembapan: number; kecepatan_angin_kmh: number; blok_wilayah: string }) {
   return panggilJson<WeatherWarning>("/kalender-tanam/weather-warning", input);

@@ -1,17 +1,13 @@
 ---
 /**
- * PriceTable — Tampilan Harga Terkini 4 Komoditas Pertanian Wonosobo.
+ * PriceTable — Harga terkini untuk komoditas yang tersedia di Wonosobo.
  *
- * Mengadopsi tata letak kartu responsif 4 kolom di desktop, 2 kolom di tablet,
- * dan 1 kolom di mobile, dengan aksen warna alami komoditas, ilustrasi tajam,
- * dan indikator perubahan harga dibanding hari kemarin.
+ * Kartu harga ringkas untuk layar kecil, dengan kartu grid pada layar lebar.
  */
 import type { PriceItem } from '../lib/api';
-import { rupiah, tanggalPanjang, persen, selisihHari } from '../lib/api';
-import { warnaKomoditas } from '../lib/komoditas';
+import { rupiah, tanggalPanjang } from '../lib/api';
 import DataSourceBadge from './DataSourceBadge.astro';
-import Ikon from './Ikon.astro';
-import Lipatan from './Lipatan.astro';
+import IkonArahHarga from './IkonArahHarga.astro';
 
 export interface Props {
   harga: PriceItem[];
@@ -19,7 +15,9 @@ export interface Props {
 
 const { harga } = Astro.props;
 
-function kindBadge(kind: string): 'aktual' | 'simulasi' | 'tidak_diketahui' {
+type JenisBadge = 'aktual' | 'simulasi' | 'tidak_diketahui';
+
+function kindBadge(kind: string): JenisBadge {
   if (kind === 'aktual') return 'aktual';
   if (kind === 'simulasi') return 'simulasi';
   return 'tidak_diketahui';
@@ -34,234 +32,144 @@ const ilustrasiKomoditas: Record<string, string> = {
   'tomat-kecil': '/komoditas/tomat-kalender.png',
 };
 
-const temaKomoditas: Record<string, { topBorder: string; badgeBg: string; textAccent: string; ringColor: string }> = {
-  'cabai-keriting': {
-    topBorder: 'border-t-red-600',
-    badgeBg: 'bg-red-50 text-red-700 border-red-200',
-    textAccent: 'text-red-700',
-    ringColor: 'hover:border-red-300',
-  },
-  'cabai-rawit-merah': {
-    topBorder: 'border-t-rose-600',
-    badgeBg: 'bg-rose-50 text-rose-800 border-rose-200',
-    textAccent: 'text-rose-800',
-    ringColor: 'hover:border-rose-300',
-  },
-  'cabai-rawit-hijau': {
-    topBorder: 'border-t-emerald-600',
-    badgeBg: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-    textAccent: 'text-emerald-800',
-    ringColor: 'hover:border-emerald-300',
-  },
-  tomat: {
-    topBorder: 'border-t-amber-500',
-    badgeBg: 'bg-amber-50 text-amber-800 border-amber-200',
-    textAccent: 'text-amber-800',
-    ringColor: 'hover:border-amber-300',
-  },
-};
+
+function teksPerubahan(h: PriceItem): string {
+  if (!h.has_previous) return '';
+  if (h.change_absolute > 0) return `Naik ${rupiah(Math.abs(h.change_absolute))} dari kemarin`;
+  if (h.change_absolute < 0) return `Turun ${rupiah(Math.abs(h.change_absolute))} dari kemarin`;
+  return 'Harga tetap dari kemarin';
+}
+
+function kelasPerubahan(h: PriceItem): string {
+  if (h.change_absolute > 0) return 'border-emerald-700 bg-emerald-50 text-emerald-900';
+  if (h.change_absolute < 0) return 'border-red-700 bg-red-50 text-red-900';
+  return 'border-stone-400 bg-stone-100 text-stone-800';
+}
+
+function kelasPanahPerubahan(h: PriceItem): string {
+  if (h.change_absolute > 0) return 'bg-emerald-700 text-white';
+  if (h.change_absolute < 0) return 'bg-red-700 text-white';
+  return 'bg-stone-600 text-white';
+}
+
+function panahPerubahan(h: PriceItem): string {
+  if (h.change_absolute > 0) return '▲';
+  if (h.change_absolute < 0) return '▼';
+  return '—';
+}
 ---
 
-<div class="space-y-6">
-  <!-- Kisi Kartu 4 Komoditas: 1 Kolom Mobile, 2 Tablet, 4 Desktop -->
-  <ul class="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
+<div class="space-y-5 sm:space-y-8">
+  <!-- Baris ringkas di ponsel; kartu lebih lapang di layar lebar. -->
+  <ul class="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
     {
       harga.map((h) => {
-        const naik = h.has_previous && h.change_absolute > 0;
-        const turun = h.has_previous && h.change_absolute < 0;
-        const tetap = h.has_previous && h.change_absolute === 0;
-        const umur = selisihHari(h.date);
-        const basi = umur !== null && umur < -7;
         const ilustrasi = ilustrasiKomoditas[h.commodity_code] || '/komoditas/cabai.svg';
-        const tema = temaKomoditas[h.commodity_code] || {
-          topBorder: 'border-t-sipanen-600',
-          badgeBg: 'bg-sipanen-50 text-sipanen-800 border-sipanen-200',
-          textAccent: 'text-sipanen-800',
-          ringColor: 'hover:border-sipanen-300',
-        };
 
         return (
-          <li
-            class:list={[
-              'group relative flex flex-col justify-between rounded-2xl border border-kertas-garis bg-white p-3 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lg sm:p-5',
-              tema.topBorder,
-              tema.ringColor,
-              'border-t-4',
-            ]}
-            data-animasi
-          >
-            <!-- Header Kartu -->
-            <div>
-              <div class="flex items-start justify-between gap-2 sm:gap-3">
-                <div class="flex min-w-0 items-center gap-2 sm:gap-3">
-                  <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-50 p-1.5 transition-transform duration-300 group-hover:scale-110 sm:h-12 sm:w-12">
-                    <img
-                      src={ilustrasi}
-                      alt={h.commodity_name}
-                      class="h-full w-full object-contain drop-shadow-sm"
-                      loading="lazy"
-                      width="48"
-                      height="48"
-                    />
-                  </div>
-                  <div>
-                    <h3 class="text-sm font-bold leading-snug text-tinta-utama transition-colors group-hover:text-sipanen-800 sm:text-base">
-                      {h.commodity_name}
-                    </h3>
-                    <p class="text-xs text-tinta-kedua">
-                      {h.variety && h.variety !== h.commodity_name ? `${h.variety} · ` : ''}per {h.unit}
-                    </p>
-                  </div>
-                </div>
-                <DataSourceBadge kind={kindBadge(h.data_kind)} ukuran="kecil" />
+          <li class="min-w-0" data-animasi>
+            <a
+              href={'/harga?bagian=prediksi&komoditas=' + h.commodity_id + '#tren-prediksi'}
+              aria-label={'Lihat prediksi harga ' + h.commodity_name + ', harga saat ini ' + rupiah(h.price) + ' per ' + h.unit + (h.has_previous ? '. ' + teksPerubahan(h) : '')}
+              title={'Lihat prediksi harga ' + h.commodity_name}
+              class="group relative flex min-h-[140px] min-w-0 flex-col gap-4 rounded-2xl border border-kertas-garis border-t-4 border-t-[#64902E] bg-white p-3 pb-12 shadow-sm transition-all duration-200 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sipanen-700 motion-reduce:transform-none motion-reduce:transition-none sm:h-full sm:min-h-[220px] sm:justify-start sm:gap-6 sm:p-5 sm:pb-14 sm:hover:-translate-y-1 lg:min-h-[180px] lg:gap-3 lg:pt-4 lg:pl-4 lg:pr-4 lg:pb-12"
+            >
+              <div class="flex min-w-0 items-center gap-2">
+                <img
+                  src={ilustrasi}
+                  alt=""
+                  class="h-3 w-3 shrink-0 object-contain drop-shadow-sm transition-transform duration-200 group-hover:scale-105 motion-reduce:transition-none sm:h-5 sm:w-5"
+                  loading="lazy"
+                  width="48"
+                  height="48"
+                />
+                <h3 class="min-w-0 break-words text-xs font-bold leading-tight text-tinta-utama sm:text-sm">
+                  {h.commodity_name}
+                </h3>
               </div>
 
-              <!-- Angka Harga Utama -->
-              <div class="mt-4 border-t border-dashed border-stone-100 pt-3 sm:mt-5 sm:pt-4">
-                <p class="text-xs font-semibold uppercase tracking-wider text-tinta-redup">
-                  Harga Hari Ini
-                </p>
-                <div class="mt-1 flex items-baseline gap-1.5">
-                  <span class="font-display text-2xl font-extrabold tracking-tight text-tinta-utama sm:text-4xl">
-                    {rupiah(h.price)}
-                  </span>
-                  <span class="text-xs font-semibold text-tinta-kedua">/{h.unit}</span>
-                </div>
-              </div>
-
-              <!-- Status Perubahan dibanding Kemarin -->
-              <div class="mt-4">
-                {h.has_previous ? (
-                  <div
-                    class:list={[
-                      'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold transition-colors',
-                      naik
-                        ? 'border-red-200 bg-red-50 text-red-700'
-                        : turun
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                        : 'border-stone-200 bg-stone-50 text-stone-600',
-                    ]}
-                  >
-                    <span class="text-sm leading-none" aria-hidden="true">
-                      {naik ? '▲' : turun ? '▼' : '■'}
-                    </span>
-                    <span>
-                      {naik ? 'Naik' : turun ? 'Turun' : 'Stabil'}{' '}
-                      {tetap ? '(0%)' : persen(h.change_percent)}
-                    </span>
-                    {h.change_absolute !== 0 && (
-                      <span class="opacity-75 font-normal">
-                        ({naik ? '+' : ''}{rupiah(h.change_absolute)})
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <span class="inline-flex items-center gap-1 text-xs text-tinta-kedua">
-                    <Ikon nama="tanya" ukuran={16} />
-                    Catatan perdana
-                  </span>
-                )}
-
-                {h.has_previous && (
-                  <p class="mt-1.5 text-[11px] text-tinta-redup">
-                    Kemarin: {rupiah(h.previous_price)} ({tanggalPanjang(h.previous_date)})
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <!-- Footer Kartu & Shortcut Prediksi -->
-            <div class="mt-6 border-t border-stone-100 pt-3">
-              <div class="flex items-center justify-between text-xs">
-                <span class="text-[11px] text-tinta-redup">
-                  Tercatat: {tanggalPanjang(h.date)}
+              <div class="min-w-0 whitespace-nowrap sm:mt-5 sm:w-full lg:mt-2">
+                <span class="font-display text-lg font-extrabold leading-tight tracking-tight text-tinta-utama sm:text-3xl lg:text-[clamp(1.5rem,2vw,2rem)]">
+                  {rupiah(h.price)}
                 </span>
-                <a
-                  href={`/harga?bagian=prediksi&komoditas=${h.commodity_id}`}
-                  class="group/link inline-flex items-center gap-1 font-bold text-sipanen-700 transition-colors hover:text-sipanen-900"
-                  title={`Lihat proyeksi harga ${h.commodity_name} 5 hari ke depan`}
-                >
-                  <span>Prediksi</span>
-                  <span class="transition-transform duration-200 group-hover/link:translate-x-0.5" aria-hidden="true">→</span>
-                </a>
+                <span class="ml-1 text-sm font-semibold text-[#4D4D4D]">/{h.unit}</span>
               </div>
 
-              {basi && (
-                <p class="mt-1 flex items-center gap-1 text-[11px] font-semibold text-amber-800">
-                  <Ikon nama="peringatan" ukuran={14} />
-                  Belum diperbarui sejak {Math.abs(umur!)} hari
-                </p>
+              {h.has_previous && (
+                <div class="absolute bottom-3 left-2 right-2 flex justify-end sm:bottom-4 sm:left-3 sm:right-3">
+                  <span class:list={[
+                    'inline-flex max-w-full items-center gap-1 rounded-full border px-1.5 py-1 text-[8px] font-semibold leading-tight sm:px-2 sm:text-xs',
+                    kelasPerubahan(h),
+                  ]}>
+                    <IkonArahHarga arah={h.change_absolute > 0 ? 'naik' : h.change_absolute < 0 ? 'turun' : 'stabil'} ukuran={10} />
+                    <span class="whitespace-nowrap">{teksPerubahan(h)}</span>
+                  </span>
+                </div>
               )}
-            </div>
+
+            </a>
           </li>
         );
       })
     }
   </ul>
+  <!-- Garis Pemisah Antara 4 Kotak Harga dan Tabel Perbandingan -->
+  <hr class="border-t border-stone-200/90 my-10 sm:my-12" />
 
-  <!-- Lipatan Tabel Data Lengkap -->
-  <Lipatan judul="Lihat rincian sebagai tabel pembanding" ikon="banding">
-    <div class="overflow-x-auto -mx-1 px-1">
-      <table class="w-full min-w-[44rem] border-collapse text-left">
-        <caption class="sr-only">Tabel perbandingan harga 4 komoditas</caption>
+  <!-- Tabel Rincian Pembanding (Selalu Terbuka / Always Visible) -->
+  <section class="hidden space-y-4 md:block" aria-labelledby="judul-tabel-pembanding">
+    <!-- Judul Tabel di Kiri Pojok -->
+    <div>
+      <h3 id="judul-tabel-pembanding" class="font-display text-3xl font-bold tracking-tight text-tinta-utama">
+        Perbandingan Harga Harian
+      </h3>
+    </div>
+
+    <!-- 1. Tampilan Desktop & Tablet (md ke atas): Tabel Rata Kiri Konsisten -->
+    <div class="hidden md:block overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-xs">
+      <table class="w-full border-collapse text-left">
+        <caption class="sr-only">Tabel perbandingan harga komoditas yang tersedia</caption>
         <thead>
-          <tr class="border-b-2 border-kertas-garis bg-stone-50/70 text-xs font-bold uppercase tracking-wider text-tinta-kedua">
-            <th scope="col" class="px-4 py-3">Komoditas</th>
-            <th scope="col" class="px-4 py-3 text-right">Harga Hari Ini</th>
-            <th scope="col" class="px-4 py-3 text-right">Harga Kemarin</th>
-            <th scope="col" class="px-4 py-3 text-center">Perubahan</th>
-            <th scope="col" class="px-4 py-3">Tanggal Catat</th>
-            <th scope="col" class="px-4 py-3">Asal Data</th>
+          <tr class="border-b border-[#125112] bg-[#E6EFE6] text-xs font-bold uppercase tracking-wider text-[#263238] dark:border-[#64902E] dark:bg-[#263238] dark:text-[#F8F9FA]">
+            <th scope="col" class="px-4 py-3.5 text-left">Komoditas</th>
+            <th scope="col" class="px-4 py-3.5 text-left">Harga Hari Ini</th>
+            <th scope="col" class="px-4 py-3.5 text-left">Harga Kemarin</th>
+            <th scope="col" class="px-4 py-3.5 text-left">Perubahan</th>
+            <th scope="col" class="px-4 py-3.5 text-left">Tanggal Catat</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-stone-100 text-sm">
           {
             harga.map((h) => {
-              const naik = h.has_previous && h.change_absolute > 0;
-              const turun = h.has_previous && h.change_absolute < 0;
               const ilustrasi = ilustrasiKomoditas[h.commodity_code] || '/komoditas/cabai.svg';
 
               return (
-                <tr class="transition-colors hover:bg-sipanen-50/40">
-                  <th scope="row" class="px-4 py-3.5 font-semibold text-tinta-utama">
-                    <div class="flex items-center gap-2.5">
-                      <img src={ilustrasi} alt="" class="h-6 w-6 object-contain" />
+                <tr class="transition-colors hover:bg-stone-50/70">
+                  <th scope="row" class="px-4 py-3.5 text-left font-semibold text-tinta-utama">
+                    <div class="flex items-center gap-3 text-left">
+                      <img src={ilustrasi} alt="" class="h-5 w-5 shrink-0 object-contain" />
                       <div>
-                        <span>{h.commodity_name}</span>
+                        <span class="font-bold text-sm text-tinta-utama">{h.commodity_name}</span>
                         <span class="block text-xs font-normal text-tinta-redup">per {h.unit}</span>
                       </div>
                     </div>
                   </th>
-                  <td class="px-4 py-3.5 text-right font-display text-base font-bold tabular-nums text-tinta-utama">
+                  <td class="px-4 py-3.5 text-left font-display text-base font-extrabold tabular-nums text-tinta-utama">
                     {rupiah(h.price)}
                   </td>
-                  <td class="px-4 py-3.5 text-right tabular-nums text-tinta-kedua">
+                  <td class="px-4 py-3.5 text-left tabular-nums text-tinta-kedua font-medium">
                     {h.has_previous ? rupiah(h.previous_price) : '-'}
                   </td>
-                  <td class="px-4 py-3.5 text-center">
+                  <td class="px-4 py-3.5 text-left">
                     {h.has_previous ? (
-                      <span
-                        class:list={[
-                          'inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-bold',
-                          naik
-                            ? 'bg-red-50 text-red-700'
-                            : turun
-                            ? 'bg-emerald-50 text-emerald-700'
-                            : 'bg-stone-100 text-stone-600',
-                        ]}
-                      >
-                        {naik ? '▲ +' : turun ? '▼ ' : '■ '}
-                        {persen(h.change_percent)}
+                      <span class:list={['inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-semibold shadow-sm', kelasPerubahan(h)]}>
+                      <IkonArahHarga arah={h.change_absolute > 0 ? 'naik' : h.change_absolute < 0 ? 'turun' : 'stabil'} ukuran={11} />
+                        {teksPerubahan(h)}
                       </span>
-                    ) : (
-                      <span class="text-xs text-tinta-redup">awal</span>
-                    )}
+                    ) : null}
                   </td>
-                  <td class="px-4 py-3.5 text-xs text-tinta-kedua whitespace-nowrap">
+                  <td class="px-4 py-3.5 text-left text-xs text-tinta-kedua whitespace-nowrap">
                     {tanggalPanjang(h.date)}
-                  </td>
-                  <td class="px-4 py-3.5">
-                    <DataSourceBadge kind={kindBadge(h.data_kind)} sumber={h.source} ukuran="kecil" />
                   </td>
                 </tr>
               );
@@ -270,5 +178,70 @@ const temaKomoditas: Record<string, { topBorder: string; badgeBg: string; textAc
         </tbody>
       </table>
     </div>
-  </Lipatan>
+
+    <!-- 2. Tampilan Khusus Mobile (< md): Kartu Pembanding Vertikal Responsif & Ramah Layar HP -->
+    <div class="space-y-4 md:hidden">
+      {
+        harga.map((h) => {
+          const ilustrasi = ilustrasiKomoditas[h.commodity_code] || '/komoditas/cabai.svg';
+
+          return (
+            <div class="rounded-2xl border border-stone-200/90 bg-white p-4 shadow-xs space-y-4 transition-colors hover:border-sipanen-300">
+              <!-- Baris 1: Ikon + Nama Komoditas (Penuh & Jelas) + Badge Ringkas -->
+              <div class="flex items-center justify-between gap-2 border-b border-stone-100 pb-2.5">
+                <div class="flex items-center gap-2.5 min-w-0">
+                  <img src={ilustrasi} alt="" class="h-6 w-6 shrink-0 object-contain" />
+                  <div class="min-w-0">
+                    <h4 class="font-bold text-base text-tinta-utama leading-tight">{h.commodity_name}</h4>
+                    <p class="text-xs font-medium text-tinta-kedua mt-0.5">Satuan: per {h.unit}</p>
+                  </div>
+                </div>
+                <!-- Badge ringkas tanpa sumber di header agar tidak mendesak nama komoditas -->
+                <DataSourceBadge kind={kindBadge(h.data_kind)} ukuran="kecil" />
+              </div>
+
+              <!-- Baris 2: Komparasi Harga Hari Ini vs Kemarin (Rata Kiri Konsisten) -->
+              <div class="grid grid-cols-2 gap-3 text-sm text-left">
+                <div class="rounded-xl bg-stone-50/90 p-2.5 border border-stone-200/60">
+                  <span class="block text-[10px] font-bold uppercase tracking-wider text-tinta-redup">Harga Hari Ini</span>
+                  <span class="font-display text-base font-extrabold text-tinta-utama leading-tight mt-1 block">
+                    {rupiah(h.price)}
+                  </span>
+                </div>
+                <div class="rounded-xl bg-stone-50/90 p-2.5 border border-stone-200/60">
+                  <span class="block text-[10px] font-bold uppercase tracking-wider text-tinta-redup">Harga Kemarin</span>
+                  <span class="text-sm font-semibold text-tinta-kedua leading-tight mt-1 block">
+                    {h.has_previous ? rupiah(h.previous_price) : '-'}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Baris 3: Status Perubahan Tren & Tanggal Catat -->
+              <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-dashed border-stone-100 text-xs text-left">
+                {h.has_previous && (
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-tinta-redup text-[11px] font-medium">Tren:</span>
+                    <span class:list={['inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-1 text-xs font-bold', kelasPerubahan(h)]}>
+                      <IkonArahHarga arah={h.change_absolute > 0 ? 'naik' : h.change_absolute < 0 ? 'turun' : 'stabil'} ukuran={10} />
+                      <span>{teksPerubahan(h)}</span>
+                    </span>
+                  </div>
+                )}
+
+                <div class="text-[11px] text-tinta-redup font-medium">
+                  📅 {tanggalPanjang(h.date)}
+                </div>
+              </div>
+
+              {h.source && (
+                <div class="text-[10px] text-tinta-redup truncate pt-0.5 text-left">
+                  Sumber: <span class="text-tinta-kedua font-medium">{h.source}</span>
+                </div>
+              )}
+            </div>
+          );
+        })
+      }
+    </div>
+  </section>
 </div>

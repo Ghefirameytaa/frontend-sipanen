@@ -14,20 +14,65 @@ const { items, selectedId } = Astro.props;
 
 <nav aria-label="Pilih komoditas">
   <p class="mb-2 text-sm font-semibold text-tinta-utama">Komoditas</p>
-  <div class="flex flex-wrap gap-2">
+  <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
     {items.map((item) => (
-      <a
-        href={`/harga?bagian=prediksi&komoditas=${item.id}`}
-        aria-current={item.id === selectedId ? 'page' : undefined}
+      <button
+        type="button"
+        data-pilih-komoditas={item.id}
+        aria-pressed={item.id === selectedId ? 'true' : 'false'}
         class:list={[
-          'inline-flex min-h-10 items-center rounded-full border px-4 py-2 text-sm font-bold transition-colors',
+          'inline-flex min-h-10 w-full items-center justify-center rounded-full border px-2 py-2 text-xs font-bold transition-colors sm:w-auto sm:px-4 sm:text-sm',
           item.id === selectedId
-            ? 'border-sipanen-600 bg-sipanen-600 text-white hover:bg-sipanen-700'
-            : 'border-kertas-garis bg-white text-tinta-utama hover:bg-stone-50',
+            ? 'border-[#B9D0AD] bg-[#DCE9D2] text-[#125112] hover:bg-[#C5D9BC]'
+            : 'border-[#C7D2DF] bg-white text-[#344054] hover:bg-[#C5D9BC]',
         ]}
       >
         {item.name}
-      </a>
+      </button>
     ))}
   </div>
 </nav>
+
+<script>
+  function aktifkanPilihanKomoditas() {
+    const root = document.querySelector<HTMLElement>('[aria-labelledby="judul-prediksi"]');
+    if (!root) return;
+
+    const tombol = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-pilih-komoditas]'));
+    const panel = Array.from(root.querySelectorAll<HTMLElement>('[data-panel-prediksi]'));
+    if (tombol.length === 0 || panel.length === 0) return;
+
+    tombol.forEach((button) => {
+      if (button.dataset.terpasang === 'true') return;
+      button.dataset.terpasang = 'true';
+      button.addEventListener('click', () => {
+        const selectedId = button.dataset.pilihKomoditas;
+        if (!selectedId) return;
+
+        panel.forEach((item) => {
+          item.hidden = item.dataset.panelPrediksi !== selectedId;
+        });
+
+        tombol.forEach((item) => {
+          const selected = item.dataset.pilihKomoditas === selectedId;
+          item.setAttribute('aria-pressed', String(selected));
+          item.classList.toggle('border-[#B9D0AD]', selected);
+          item.classList.toggle('bg-[#DCE9D2]', selected);
+          item.classList.toggle('text-[#125112]', selected);
+          item.classList.toggle('border-[#C7D2DF]', !selected);
+          item.classList.toggle('bg-white', !selected);
+          item.classList.toggle('text-[#344054]', !selected);
+        });
+
+        const url = new URL(window.location.href);
+        url.searchParams.set('bagian', 'prediksi');
+        url.searchParams.set('komoditas', selectedId);
+        window.history.replaceState(window.history.state, '', url);
+        requestAnimationFrame(() => document.dispatchEvent(new Event('sipanen:refresh-charts')));
+      });
+    });
+  }
+
+  document.addEventListener('astro:page-load', aktifkanPilihanKomoditas);
+  aktifkanPilihanKomoditas();
+</script>

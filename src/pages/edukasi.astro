@@ -1,14 +1,25 @@
 ---
 import MainLayout from '../layouts/MainLayout.astro';
-import CatatanPanel from '../components/CatatanPanel.astro';
 import DataState from '../components/DataState.astro';
 import Ikon from '../components/Ikon.astro';
 import { getEducationModules } from '../lib/api';
 
 const kategoriDipilih = Astro.url.searchParams.get('kategori') ?? '';
 const hasil = await getEducationModules(kategoriDipilih || undefined);
-const modul = hasil.ok ? hasil.data.modules : [];
-const catatanEdukasi = hasil.ok ? hasil.meta.notes ?? [] : [];
+const artikelPolybag = {
+  slug: 'pemupukan-cabai-polybag',
+  title: 'Pemupukan Tanaman Cabai dalam Polybag',
+  summary: 'Panduan pemupukan cabai polybag dari persiapan media hingga fase berbuah.',
+  category: 'pupuk',
+  reading_minutes: 0,
+  sort_order: 999,
+};
+const modul = hasil.ok
+  ? [artikelPolybag, ...hasil.data.modules].filter((item) => !kategoriDipilih || item.category === kategoriDipilih)
+  : [];
+const kategoriArtikel = hasil.ok
+  ? [...new Set([...hasil.data.categories, 'pupuk'])]
+  : [];
 
 const kategoriTampilan: Record<string, { label: string; ikon: string }> = {
   pupuk: { label: 'Pupuk', ikon: 'semprot' },
@@ -34,16 +45,16 @@ const fotoKategori: Record<string, string> = {
   description="Artikel praktis tentang pemupukan, nutrisi, perawatan, dan penyiraman tanaman."
 >
   <div class="space-y-8">
-    <header data-page-hero class="relative isolate overflow-hidden rounded-panel bg-[#64902E] px-4 py-6 text-white shadow-lg sm:px-9 sm:py-10">
-      <img src="https://images.unsplash.com/photo-1499529112087-3cb3b73cec95?auto=format&fit=crop&w=1400&q=85" alt="Hamparan pertanian hijau" class="absolute inset-0 z-0 h-full w-full object-cover opacity-35" width="1400" height="800" />
-      <div data-page-hero-overlay class="absolute inset-0 z-10 bg-gradient-to-r from-[#64902E] via-[#64902E]/90 to-[#64902E]/35" aria-hidden="true"></div>
+    <header data-page-hero class="relative isolate overflow-hidden rounded-panel bg-[#125112] px-4 py-6 text-white shadow-lg sm:px-9 sm:py-10">
+      <img src="https://images.unsplash.com/photo-1499529112087-3cb3b73cec95?auto=format&fit=crop&w=1400&q=85" alt="Hamparan pertanian hijau" class="absolute inset-0 z-0 h-full w-full object-cover opacity-90" width="1400" height="800" />
+      <div data-page-hero-overlay class="hero-photo-overlay absolute inset-0 z-10" aria-hidden="true"></div>
       <div class="relative z-20 flex flex-wrap items-end justify-between gap-6">
         <div class="max-w-3xl">
           <p data-page-hero-badge class="mb-3 inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#EAF2CF] px-2.5 py-1.5 text-[10px] font-bold uppercase leading-tight tracking-[0.04em] text-[#263238] sm:gap-2 sm:px-3 sm:text-sm sm:tracking-wide">
-            <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#64902E]" aria-hidden="true"></span>
+            <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#125112]" aria-hidden="true"></span>
             <span class="min-w-0">Perpustakaan praktik budidaya</span>
           </p>
-          <h1 class="font-display text-3xl font-semibold leading-tight sm:text-4xl">Edukasi tanaman</h1>
+          <h1 class="font-display text-2xl font-bold leading-tight tracking-tight text-white sm:text-3xl">Edukasi tanaman</h1>
           <p class="mt-4 text-base text-green-50 sm:text-lg">Panduan ringkas untuk membantu keputusan harian di kebun, dari nutrisi sampai pengelolaan air.</p>
         </div>
         {hasil.ok && <p data-page-hero-divider class="relative border-l border-white/50 pl-4 text-green-50"><strong class="block text-2xl text-white">{hasil.data.modules.length}</strong>artikel tersedia</p>}
@@ -59,30 +70,30 @@ const fotoKategori: Record<string, string> = {
       />
     ) : (
       <>
-        <nav aria-label="Filter kategori edukasi" class="flex flex-wrap gap-2">
+        <nav aria-label="Filter kategori edukasi" class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           <a
             href="/edukasi"
             aria-current={!kategoriDipilih ? 'page' : undefined}
             class:list={[
-              'inline-flex min-h-sentuh items-center rounded-full border px-4 font-semibold',
+              'inline-flex min-h-sentuh w-full items-center justify-center rounded-full border px-2 text-xs font-semibold sm:w-auto sm:px-4 sm:text-sm',
               !kategoriDipilih
-                ? 'border-[#CFEB73] bg-[#CFEB73] text-[#263238]'
-                : 'border-kertas-garis bg-white text-tinta-kedua hover:border-sipanen-600',
+                ? 'border-[#B9D0AD] bg-[#DCE9D2] text-[#125112] hover:bg-[#C5D9BC]'
+                : 'border-[#C7D2DF] bg-white text-[#344054] hover:bg-[#C5D9BC]',
             ]}
           >
             Semua artikel
           </a>
-          {hasil.data.categories.map((slug) => {
+          {kategoriArtikel.map((slug) => {
             const item = kategori(slug);
             return (
               <a
                 href={`/edukasi?kategori=${encodeURIComponent(slug)}`}
                 aria-current={kategoriDipilih === slug ? 'page' : undefined}
                 class:list={[
-                  'inline-flex min-h-sentuh items-center gap-2 rounded-full border px-4 font-semibold',
+                  'inline-flex min-h-sentuh w-full items-center justify-center gap-2 rounded-full border px-2 text-xs font-semibold sm:w-auto sm:px-4 sm:text-sm',
                   kategoriDipilih === slug
-                    ? 'border-[#CFEB73] bg-[#CFEB73] text-[#263238]'
-                    : 'border-kertas-garis bg-white text-tinta-kedua hover:border-sipanen-600',
+                    ? 'border-[#B9D0AD] bg-[#DCE9D2] text-[#125112] hover:bg-[#C5D9BC]'
+                    : 'border-[#C7D2DF] bg-white text-[#344054] hover:bg-[#C5D9BC]',
                 ]}
               >
                 <Ikon nama={item.ikon} ukuran={19} />
@@ -101,7 +112,7 @@ const fotoKategori: Record<string, string> = {
           />
         ) : (
           <section aria-label="Daftar artikel edukasi">
-            <ol class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <ol class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
               {modul.map((m) => {
                 const item = kategori(m.category);
                 return (
@@ -112,18 +123,20 @@ const fotoKategori: Record<string, string> = {
                       data-animasi
                     >
                       <div class="relative h-40 overflow-hidden bg-sipanen-100">
-                        <img src={fotoKategori[m.category] ?? fotoKategori.perawatan} alt={`Ilustrasi ${item.label.toLowerCase()}`} loading="lazy" width="900" height="600" class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
-                        <span class="absolute bottom-3 left-3 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-sm font-semibold text-sipanen-900">
-                          <Ikon nama={item.ikon} ukuran={19} />
-                          {item.label}
-                        </span>
+                        <img src={m.slug === artikelPolybag.slug ? 'https://distankan.bulelengkab.go.id/uploads/konten/42_pemupukan-tanaman-cabai-dalam-polybag_2026-02-28-15-15-21.jpg' : fotoKategori[m.category] ?? fotoKategori.perawatan} alt={m.slug === artikelPolybag.slug ? 'Tanaman cabai dalam polybag, foto dari Dinas Pertanian Kabupaten Buleleng' : `Ilustrasi ${item.label.toLowerCase()}`} loading="lazy" width="900" height="600" class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
                       </div>
                       <div class="flex flex-1 flex-col p-5">
-                        <span class="text-xl font-bold leading-tight">{m.title}</span>
-                        <span class="mt-2 flex-1 text-tinta-kedua">{m.summary}</span>
-                        <span class="mt-5 inline-flex items-center gap-2 border-t border-kertas-garis pt-3 text-sm text-tinta-redup">
-                          <Ikon nama="jam" ukuran={19} />{m.reading_minutes} menit baca
+                        <span class="mb-3 inline-flex min-h-8 w-fit items-center gap-2 rounded-full bg-[#EAF2CF] px-3 py-1 text-sm font-semibold text-[#125112]">
+                          <Ikon nama={item.ikon} ukuran={17} />
+                          {item.label}
                         </span>
+                        <h2 class="font-display text-lg font-bold leading-snug text-tinta-utama sm:text-xl">{m.title}</h2>
+                        <p class="mt-2 flex-1 text-sm leading-relaxed text-tinta-kedua">{m.summary}</p>
+                        <div class="mt-4 flex flex-wrap items-center gap-2 border-t border-kertas-garis pt-3">
+                          <span class="inline-flex min-h-7 items-center gap-1 rounded-full bg-[#F3F5F7] px-2 text-xs font-medium text-tinta-kedua">
+                            <Ikon nama={m.slug === artikelPolybag.slug ? 'kalender' : 'jam'} ukuran={14} />{m.slug === artikelPolybag.slug ? '28 Februari 2026' : `${m.reading_minutes} menit baca`}
+                          </span>
+                        </div>
                       </div>
                     </a>
                   </li>
@@ -132,8 +145,6 @@ const fotoKategori: Record<string, string> = {
             </ol>
           </section>
         )}
-
-        {catatanEdukasi.length > 0 && <CatatanPanel catatan={catatanEdukasi} />}
       </>
     )}
   </div>

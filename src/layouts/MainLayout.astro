@@ -1,4 +1,4 @@
-﻿---
+---
 /**
  * MainLayout — navigasi, tipografi, dan kerangka halaman SiPanen.
  */
@@ -24,7 +24,7 @@ const tautan = [
   { href: '/', label: 'Beranda', ikon: 'beranda' },
   { href: '/harga', label: 'Harga', ikon: 'harga' },
   { href: '/kalender', label: 'Kalender', ikon: 'kalender' },
-  { href: '/scan-penyakit', label: 'Penyakit', ikon: 'scan-frame' },
+  // { href: '/scan-penyakit', label: 'Diagnosis', ikon: 'scan-frame' },
   { href: '/edukasi', label: 'Edukasi', ikon: 'panduan' },
 ];
 
@@ -49,7 +49,7 @@ function aktif(href: string): boolean {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
-    <meta name="theme-color" content="#28CB8B" />
+    <meta name="theme-color" content="#125112" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title} | SiPanen</title>
     <ViewTransitions />
@@ -86,7 +86,7 @@ function aktif(href: string): boolean {
             />
           </a>
 
-          <nav aria-label="Menu utama" class="hidden lg:block">
+          <nav aria-label="Menu utama" data-header-desktop-nav class="hidden lg:block">
             <ul class="flex items-center gap-1">
               {
                 tautan.map((t) => (
@@ -95,10 +95,10 @@ function aktif(href: string): boolean {
                       href={t.href}
                       aria-current={aktif(t.href) ? 'page' : undefined}
                       class:list={[
-                        'group flex items-center gap-1.5 min-h-10 border border-transparent px-2 rounded-full text-xs font-semibold shadow-[0_2px_8px_rgba(38,50,56,0.1)] transition-all duration-200 hover:-translate-y-0.5 hover:border-sipanen-300 hover:shadow-[0_5px_14px_rgba(38,50,56,0.2)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sipanen-700 motion-reduce:transform-none motion-reduce:transition-none dark:shadow-[0_2px_8px_rgba(248,249,250,0.08)] dark:hover:border-sipanen-300 dark:hover:bg-[#5A5F4B] dark:hover:text-[#FFFFFF] dark:hover:shadow-[0_0_12px_rgba(248,249,250,0.2)]',
+                        'group flex items-center gap-1.5 min-h-10 border border-transparent px-2 rounded-full text-xs font-semibold shadow-[0_2px_8px_rgba(38,50,56,0.1)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_5px_14px_rgba(38,50,56,0.2)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:transform-none motion-reduce:transition-none dark:shadow-[0_2px_8px_rgba(248,249,250,0.08)] dark:hover:shadow-[0_0_12px_rgba(248,249,250,0.2)]',
                         aktif(t.href)
                           ? 'nav-aktif'
-                          : 'text-[#263238] hover:bg-[#64902E]/10 hover:text-[#263238]',
+                          : '',
                       ]}
                       data-header-link
                     >
@@ -112,19 +112,6 @@ function aktif(href: string): boolean {
           </nav>
 
           <div class="flex shrink-0 items-center gap-1.5 sm:gap-2">
-          <button
-            type="button"
-            data-theme-toggle
-            data-header-control
-            class="group relative inline-flex h-9 w-9 min-h-[2.25rem] min-w-[2.25rem] items-center justify-center rounded-full border border-white/40 text-white transition-all duration-200 before:absolute before:-inset-1 before:content-[''] hover:-translate-y-0.5 hover:border-white hover:bg-white/10 hover:text-white hover:shadow-[0_4px_12px_rgba(38,50,56,0.2)] active:translate-y-0 active:scale-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:transform-none motion-reduce:transition-none dark:border-kertas-garis dark:text-tinta-kedua dark:hover:border-sipanen-300 dark:hover:bg-[#4D4D4D] dark:hover:text-[#F8F9FA] dark:hover:shadow-[0_0_14px_rgba(192,242,131,0.3)]"
-            aria-label="Aktifkan tema gelap"
-            aria-pressed="false"
-            title="Ganti tema"
-          >
-            <Ikon nama="bulan" ukuran={18} kelas="theme-icon theme-icon-light transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110 motion-reduce:transform-none" />
-            <Ikon nama="matahari" ukuran={18} kelas="theme-icon theme-icon-dark hidden transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110 motion-reduce:transform-none" />
-          </button>
-
           <details class="relative lg:hidden">
             <summary data-header-control aria-label="Buka menu navigasi" class="group relative flex h-9 w-9 min-h-[2.25rem] min-w-[2.25rem] cursor-pointer list-none items-center justify-center rounded-full border border-white/40 font-semibold text-white transition-all duration-200 before:absolute before:-inset-1 before:content-[''] hover:-translate-y-0.5 hover:border-white hover:bg-white/10 hover:text-white hover:shadow-[0_4px_12px_rgba(38,50,56,0.14)] active:translate-y-0 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:transform-none motion-reduce:transition-none dark:border-kertas-garis dark:text-tinta-utama dark:hover:bg-sipanen-800 dark:hover:text-white dark:hover:shadow-[0_0_12px_rgba(248,249,250,0.16)] [&::-webkit-details-marker]:hidden">
               <Ikon nama="menu" ukuran={18} />
@@ -138,11 +125,12 @@ function aktif(href: string): boolean {
                         href={t.href}
                         aria-current={aktif(t.href) ? 'page' : undefined}
                         class:list={[
-                          'group flex min-h-sentuh items-center gap-3 rounded-full border border-transparent px-3 font-semibold transition-all duration-200 hover:translate-x-1 hover:border-sipanen-300 hover:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sipanen-700 motion-reduce:transform-none motion-reduce:transition-none dark:hover:border-sipanen-300 dark:hover:bg-[#5A5F4B] dark:hover:text-[#FFFFFF] dark:hover:shadow-[0_4px_12px_rgba(248,249,250,0.12)]',
+                          'group flex min-h-sentuh items-center gap-3 rounded-full border border-transparent px-3 font-semibold transition-all duration-200 hover:translate-x-1 hover:border-white hover:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:transform-none motion-reduce:transition-none dark:hover:border-white dark:hover:bg-[#5A5F4B] dark:hover:text-[#FFFFFF] dark:hover:shadow-[0_4px_12px_rgba(248,249,250,0.12)]',
                           aktif(t.href)
                             ? 'nav-aktif'
                             : 'text-tinta-kedua hover:bg-kertas-lembut hover:text-sipanen-900',
                         ]}
+                        data-header-link
                       >
                         <span class="shrink-0 transition-transform duration-200 group-hover:scale-110 motion-reduce:transition-none"><Ikon nama={t.ikon} ukuran={22} inline /></span>
                         <span>{t.label}</span>
@@ -162,7 +150,7 @@ function aktif(href: string): boolean {
       <slot />
     </main>
 
-    <footer class="mt-12 bg-[#5A5F4B] text-white">
+    <footer class="mt-12 border-t border-[#4D4D4D] bg-[#263238] text-white shadow-[0_-4px_18px_rgba(38,50,56,0.12)] dark:border-[#89939E] dark:bg-[#3A4449] dark:shadow-[0_-4px_18px_rgba(0,0,0,0.28)]">
       <div class="mx-auto grid max-w-[90rem] items-center gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[1.6fr_0.8fr] lg:px-8 lg:py-10">
         <div>
           <img
@@ -177,16 +165,15 @@ function aktif(href: string): boolean {
             Sistem informasi komoditas, diagnostik tanaman, dan kalender agrikultur terintegrasi untuk kemandirian petani desa.
           </p>
 
-          <div class="mt-7 flex flex-wrap items-center gap-2 text-sm text-white/60">
+          <div class="mt-7 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-white/75 dark:text-[#ABBED1]">
             <span>© 2026 Desa Blederan &amp; Tim KKN.</span>
-            <span>All rights reserved.</span>
-            <span class="before:content-['•'] before:mr-2 before:text-white/60">Admin Portal</span>
+            <span>Hak cipta dilindungi.</span>
           </div>
         </div>
 
         <div class="flex justify-start lg:justify-end">
           <div class="space-y-1 text-left">
-            <p class="text-sm font-medium text-white/80">Output Pengabdian Masyarakat:</p>
+            <p class="text-sm font-medium text-white/80">Program pengabdian masyarakat</p>
             <p class="text-base font-bold leading-tight text-white">KKN Tematik Mojotengah 2026</p>
           </div>
         </div>
@@ -194,38 +181,6 @@ function aktif(href: string): boolean {
     </footer>
 
     <script data-astro-rerun>
-      (function () {
-        var root = document.documentElement;
-        var toggle = document.querySelector('[data-theme-toggle]');
-        var header = document.querySelector('[data-site-header]');
-        var stored = localStorage.getItem('sipanen-theme');
-        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-        function setTheme(theme) {
-          var dark = theme === 'dark';
-          root.classList.toggle('dark', dark);
-          if (header) {
-            header.setAttribute('data-theme', dark ? 'dark' : 'light');
-          }
-          document.dispatchEvent(new CustomEvent('sipanen:theme-change'));
-          if (toggle) {
-            toggle.setAttribute('aria-label', dark ? 'Aktifkan tema terang' : 'Aktifkan tema gelap');
-            toggle.setAttribute('aria-pressed', String(dark));
-            toggle.querySelector('.theme-icon-light').classList.toggle('hidden', dark);
-            toggle.querySelector('.theme-icon-dark').classList.toggle('hidden', !dark);
-          }
-        }
-
-        setTheme(stored || (prefersDark ? 'dark' : 'light'));
-        if (toggle) {
-          toggle.addEventListener('click', function () {
-            var next = root.classList.contains('dark') ? 'light' : 'dark';
-            localStorage.setItem('sipanen-theme', next);
-            setTheme(next);
-          });
-        }
-      })();
-
       // Animasi muncul saat elemen masuk layar. Dipakai elemen bertanda
       // `data-animasi`. Bila pengguna memilih reduce-motion, elemen langsung
       // ditampilkan tanpa animasi sama sekali.
@@ -276,12 +231,28 @@ function aktif(href: string): boolean {
     </script>
 
     <style is:global>
+      .hero-photo-overlay {
+        background-image: linear-gradient(
+          90deg,
+          rgb(18 81 18 / 90%) 0%,
+          rgb(18 81 18 / 90%) 35%,
+          rgb(18 81 18 / 82%) 45%,
+          rgb(18 81 18 / 72%) 55%,
+          rgb(18 81 18 / 62%) 65%,
+          rgb(18 81 18 / 54%) 75%,
+          rgb(18 81 18 / 50%) 85%,
+          rgb(18 81 18 / 50%) 100%
+        );
+      }
+
       * {
         box-sizing: border-box;
       }
 
       body {
-        font-family: "Inter Variable", sans-serif;
+        font-family: "Inter Variable", Inter, sans-serif;
+        font-synthesis: none;
+        text-rendering: optimizeLegibility;
       }
 
       code,
@@ -308,21 +279,19 @@ function aktif(href: string): boolean {
         color: #F8F9FA;
       }
 
-      .ikon-svg * {
-        fill: none;
-        stroke: currentColor;
-        stroke-width: 1.75;
-      }
-
       html.dark body > header {
         background-color: #4D4D4D;
       }
 
       html.dark body > footer {
-        background-color: #3B463E;
+        background-color: #3A4449;
         color: #F8F9FA;
-        border-top: 1px solid #667266;
+        border-top-color: #89939E;
         box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.2);
+      }
+
+      html.dark body > footer .text-white\/75 {
+        color: #ABBED1;
       }
 
       html.dark body > footer .text-amber-800,
@@ -411,23 +380,27 @@ function aktif(href: string): boolean {
       }
 
       .nav-aktif {
-        background-color: rgb(207 235 115 / 35%);
-        color: #263238;
+        background-color: var(--nav-active-background);
+        color: #FFFFFF;
+        font-weight: 600;
       }
 
       html.dark .nav-aktif {
-        color: #F8F9FA;
+        color: #FFFFFF;
       }
 
       header[data-site-header] {
-        background-color: #64902E;
-        border-color: #64902E;
+        --nav-background: #125112;
+        --nav-active-background: #386D38;
+        --nav-hover-background: rgb(255 255 255 / 12%);
+        background-color: var(--nav-background);
+        border-color: var(--nav-background);
         color: #FFFFFF;
         box-shadow: 0 2px 12px rgba(38, 50, 56, 0.12);
       }
 
       html.dark header[data-site-header] {
-        border-bottom-color: transparent;
+        border-bottom-color: #3D7650;
       }
 
       html.dark [data-page-hero] {
@@ -441,7 +414,7 @@ function aktif(href: string): boolean {
 
       html.dark [data-page-hero] > img {
         z-index: 0;
-        opacity: 0.35;
+        opacity: 0.55;
       }
 
       html.dark [data-page-hero-overlay] {
@@ -491,9 +464,17 @@ function aktif(href: string): boolean {
         display: none;
       }
 
-      header[data-site-header] [data-header-link],
+      header[data-site-header] [data-header-desktop-nav] [data-header-link],
       header[data-site-header] [data-header-control] {
         color: #FFFFFF;
+      }
+
+      header[data-site-header] details nav [data-header-link] {
+        color: #344054;
+      }
+
+      html.dark header[data-site-header] details nav [data-header-link] {
+        color: #F8F9FA;
       }
 
       header[data-site-header] [data-header-control] {
@@ -501,7 +482,7 @@ function aktif(href: string): boolean {
       }
 
       header[data-site-header] > div > div > nav .nav-aktif {
-        background-color: rgba(255, 255, 255, 0.18);
+        background-color: var(--nav-active-background);
         color: #FFFFFF;
       }
 
@@ -523,7 +504,7 @@ function aktif(href: string): boolean {
       }
 
       html.dark .border-kertas-garis {
-        border-color: #717171;
+        border-color: #89939E;
       }
 
       html.dark .text-sipanen-900,
@@ -611,7 +592,7 @@ function aktif(href: string): boolean {
       html.dark textarea {
         background-color: #4D4D4D;
         color: #F8F9FA;
-        border-color: #717171;
+        border-color: #89939E;
       }
 
       html.dark .shadow-sm,
@@ -698,15 +679,323 @@ function aktif(href: string): boolean {
         border-radius: 4px;
       }
 
-      html,
-      body {
-        scrollbar-width: none;
+      header[data-site-header] [data-header-link]:focus-visible,
+      header[data-site-header] [data-header-control]:focus-visible {
+        outline: 2px solid rgba(255, 255, 255, 0.5) !important;
+        outline-offset: 2px !important;
+        border-radius: 9999px !important;
+        box-shadow: 0 0 0 4px rgb(18 81 18 / 78%) !important;
       }
 
-      html::-webkit-scrollbar,
-      body::-webkit-scrollbar {
-        display: none;
+      :root {
+        --sp-ink: #263238;
+        --sp-text: #4D4D4D;
+        --sp-muted: #717171;
+        --sp-line: #ABBED1;
+        --sp-paper: #FFFFFF;
+        --sp-canvas: #F8F9FA;
+        --sp-primary: #28CBB8;
+        --sp-primary-deep: #167D72;
+        --sp-hover: #CFEB73;
+        --sp-focus: #309CF6;
+        --sp-shadow: 0 8px 24px rgb(38 50 56 / 8%);
       }
+
+      html.dark {
+        --sp-ink: #F8F9FA;
+        --sp-text: #E2E7EA;
+        --sp-muted: #ABBED1;
+        --sp-line: #89939E;
+        --sp-paper: #303B40;
+        --sp-canvas: #263238;
+        --sp-primary: #67D9CC;
+        --sp-primary-deep: #263238;
+        --sp-hover: #5A5F4B;
+        --sp-shadow: 0 8px 24px rgb(0 0 0 / 20%);
+      }
+
+      body {
+        background: var(--sp-canvas);
+        color: var(--sp-ink);
+        line-height: 1.55;
+      }
+
+      h1, h2, h3, h4 {
+        letter-spacing: -0.025em;
+        text-wrap: balance;
+      }
+
+      p, li {
+        text-wrap: pretty;
+      }
+
+      :where(button, input, select, textarea) {
+        font: inherit;
+      }
+
+      :where(button, a, summary, input, select, textarea) {
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      :where(button, a, summary, input, select, textarea):focus-visible {
+        outline-color: var(--sp-focus);
+      }
+
+      :where(a, button, summary, [role="button"], input, select, textarea) {
+        transition-duration: 160ms;
+      }
+
+      :where(input, select, textarea) {
+        max-width: 100%;
+        border-color: var(--sp-line);
+        border-radius: 0.625rem;
+      }
+
+      /* Give every native disclosure a visible, theme-safe control boundary. */
+      :where(body details > summary:not([data-header-control])) {
+        display: inline-flex;
+        width: fit-content;
+        max-width: 100%;
+        align-items: center;
+        border: 1px solid var(--sp-line);
+        border-radius: 0.625rem;
+        padding: 0.5rem 0.75rem;
+        transition: border-color 160ms ease, background-color 160ms ease;
+      }
+
+      :where(body details > summary:not([data-header-control]):hover) {
+        border-color: #64902E;
+      }
+
+      :where(body details[open] > summary:not([data-header-control])) {
+        border-color: #64902E;
+      }
+
+      :where(select:hover) {
+        border-color: #64902E;
+      }
+
+      :where(select:focus-visible) {
+        border-color: var(--sp-focus);
+      }
+
+      html.dark :where(body details > summary:not([data-header-control]):hover),
+      html.dark :where(body details[open] > summary:not([data-header-control])) {
+        border-color: #C0F283;
+      }
+
+      html.dark :where(select:hover) {
+        border-color: #C0F283;
+      }
+
+      html.dark :where(select:focus-visible) {
+        border-color: #75BEFF;
+      }
+
+      @supports (interpolate-size: allow-keywords) {
+        :where(body details) {
+          interpolate-size: allow-keywords;
+        }
+
+        :where(body details::details-content) {
+          block-size: 0;
+          overflow: clip;
+          transition: block-size 220ms ease, content-visibility 220ms allow-discrete;
+        }
+
+        :where(body details[open]::details-content) {
+          block-size: auto;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        :where(body details > summary:not([data-header-control])) {
+          transition: none;
+        }
+      }
+
+      :where(img, svg, video, canvas) {
+        max-width: 100%;
+      }
+
+      .rounded-card,
+      .rounded-panel {
+        box-shadow: var(--sp-shadow);
+      }
+
+      header[data-site-header] {
+        background: var(--nav-background);
+        box-shadow: 0 1px 8px rgb(38 50 56 / 12%);
+      }
+
+      html.dark header[data-site-header] {
+        background: var(--nav-background);
+      }
+
+      header[data-site-header] [data-header-desktop-nav] [data-header-link]:not(.nav-aktif):hover {
+        background: var(--nav-hover-background);
+        color: #FFFFFF;
+      }
+
+      header[data-site-header] [data-header-desktop-nav] [data-header-link]:hover {
+        border-color: transparent !important;
+      }
+
+      header[data-site-header] a:hover,
+      header[data-site-header] summary:hover {
+        transform: none;
+        box-shadow: none;
+      }
+
+      header[data-site-header] > div > div > nav .nav-aktif {
+        background: var(--nav-active-background);
+        color: #FFFFFF;
+        border-color: transparent !important;
+      }
+
+      header[data-site-header] .nav-aktif:hover {
+        border-color: transparent !important;
+      }
+
+      header[data-site-header] details nav .nav-aktif {
+        background-color: var(--nav-active-background);
+        color: #FFFFFF;
+        border-color: transparent;
+      }
+
+      html.dark header[data-site-header] details nav .nav-aktif {
+        background-color: var(--nav-active-background);
+        color: #FFFFFF;
+      }
+
+      html.dark .bg-amber-50,
+      html.dark .bg-amber-100,
+      html.dark .bg-yellow-50,
+      html.dark .bg-yellow-100 { background-color: #51472D; }
+
+      html.dark .bg-green-50,
+      html.dark .bg-green-100,
+      html.dark .bg-lime-50,
+      html.dark .bg-lime-100,
+      html.dark .bg-emerald-50,
+      html.dark .bg-emerald-100 { background-color: #29453A; }
+
+      html.dark .bg-sky-50,
+      html.dark .bg-sky-100,
+      html.dark .bg-blue-50,
+      html.dark .bg-blue-100,
+      html.dark .bg-cyan-50,
+      html.dark .bg-cyan-100 { background-color: #293F50; }
+
+      html.dark .bg-red-50,
+      html.dark .bg-red-100,
+      html.dark .bg-rose-50,
+      html.dark .bg-rose-100 { background-color: #513434; }
+
+      html.dark :where(.bg-amber-50, .bg-amber-100, .bg-yellow-50, .bg-yellow-100,
+        .bg-green-50, .bg-green-100, .bg-lime-50, .bg-lime-100,
+        .bg-emerald-50, .bg-emerald-100, .bg-sky-50, .bg-sky-100,
+        .bg-blue-50, .bg-blue-100, .bg-cyan-50, .bg-cyan-100,
+        .bg-red-50, .bg-red-100, .bg-rose-50, .bg-rose-100) {
+        color: #F8F9FA;
+        border-color: #717171;
+      }
+
+      @media (max-width: 640px) {
+        main { width: 100%; }
+        [data-page-hero] { border-radius: 1rem; }
+        :where(.rounded-card, .rounded-panel) { border-radius: 0.875rem; }
+      }
+
+      html.dark .bg-white,
+      html.dark .bg-kertas { background-color: #303B40; }
+
+      html.dark [class*="bg-gray-50"],
+      html.dark [class*="bg-gray-100"],
+      html.dark [class*="bg-slate-50"],
+      html.dark [class*="bg-slate-100"],
+      html.dark [class*="bg-stone-50"],
+      html.dark [class*="bg-stone-100"] { background-color: #3A4449; }
+
+      html.dark [class*="bg-sipanen-50"],
+      html.dark [class*="bg-sipanen-100"],
+      html.dark [class*="bg-sipanen-200"],
+      html.dark [class*="bg-lime-50"],
+      html.dark [class*="bg-lime-100"] { background-color: #3F4A33; }
+
+      html.dark [class*="bg-green-50"],
+      html.dark [class*="bg-green-100"],
+      html.dark [class*="bg-emerald-50"],
+      html.dark [class*="bg-emerald-100"] { background-color: #29453A; }
+
+      html.dark [class*="bg-amber-50"],
+      html.dark [class*="bg-amber-100"],
+      html.dark [class*="bg-amber-200"],
+      html.dark [class*="bg-yellow-50"],
+      html.dark [class*="bg-yellow-100"],
+      html.dark [class*="bg-yellow-200"] { background-color: #51472D; }
+
+      html.dark [class*="bg-red-50"],
+      html.dark [class*="bg-red-100"],
+      html.dark [class*="bg-red-200"],
+      html.dark [class*="bg-rose-50"],
+      html.dark [class*="bg-rose-100"],
+      html.dark [class*="bg-rose-200"],
+      html.dark [class*="bg-bahaya-50"],
+      html.dark [class*="bg-bahaya-100"],
+      html.dark [class*="bg-bahaya-200"] { background-color: #513434; }
+
+      html.dark [class*="bg-blue-50"],
+      html.dark [class*="bg-blue-100"],
+      html.dark [class*="bg-blue-200"],
+      html.dark [class*="bg-sky-50"],
+      html.dark [class*="bg-sky-100"],
+      html.dark [class*="bg-sky-200"],
+      html.dark [class*="bg-cyan-50"],
+      html.dark [class*="bg-cyan-100"],
+      html.dark [class*="bg-cyan-200"] { background-color: #293F50; }
+
+      html.dark [class*="text-amber-"],
+      html.dark [class*="text-yellow-"] { color: #FFD95C; }
+
+      html.dark [class*="text-red-"],
+      html.dark [class*="text-rose-"],
+      html.dark [class*="text-bahaya-"] { color: #FF8A84; }
+
+      html.dark [class*="text-blue-"],
+      html.dark [class*="text-sky-"],
+      html.dark [class*="text-cyan-"] { color: #75BEFF; }
+
+      html.dark [class*="text-green-"],
+      html.dark [class*="text-emerald-"] { color: #9BDBA7; }
+
+      html.dark [class*="text-lime-"],
+      html.dark [class*="text-sipanen-"] { color: #C0F283; }
+
+      html.dark [class*="text-gray-"],
+      html.dark [class*="text-slate-"],
+      html.dark [class*="text-stone-"] { color: #E2E7EA; }
+
+      html.dark [class*="border-red-"],
+      html.dark [class*="border-rose-"],
+      html.dark [class*="border-bahaya-"] { border-color: #A95752; }
+
+      html.dark [class*="border-amber-"],
+      html.dark [class*="border-yellow-"] { border-color: #8A7644; }
+
+      html.dark [class*="border-blue-"],
+      html.dark [class*="border-sky-"],
+      html.dark [class*="border-cyan-"] { border-color: #52748D; }
+
+      html.dark [class*="border-green-"],
+      html.dark [class*="border-emerald-"],
+      html.dark [class*="border-lime-"],
+      html.dark [class*="border-sipanen-"] { border-color: #647A45; }
+
+      @media (hover: hover) and (pointer: fine) {
+        [class*="hover:-translate-y"]:hover { --tw-translate-y: -2px; }
+      }
+
     </style>
   </body>
 </html>

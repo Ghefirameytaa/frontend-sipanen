@@ -38,9 +38,9 @@ const garis = nada === 'peringatan' ? 'border-amber-400' : 'border-kertas-garis'
 const warnaIkon = nada === 'peringatan' ? 'text-amber-800' : 'text-sipanen-800';
 ---
 
-<details class:list={['lipatan border-t transition-colors duration-200 hover:border-sipanen-300 focus-within:border-sipanen-300 dark:hover:border-sipanen-200 dark:focus-within:border-sipanen-200', garis]}>
+<details class:list={['lipatan border-t pt-3 transition-colors duration-200 hover:border-sipanen-300 focus-within:border-sipanen-300 dark:hover:border-sipanen-200 dark:focus-within:border-sipanen-200', garis]}>
   <summary
-    class="lipatan-tombol -mx-3 flex min-h-sentuh cursor-pointer select-none items-center gap-3 rounded-lg px-3 py-3 transition-colors duration-200 hover:bg-[#ABBED1]/40 hover:text-sipanen-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sipanen-700 dark:hover:bg-[#ABBED1]/40 motion-reduce:transition-none"
+    class="lipatan-tombol flex min-h-sentuh cursor-pointer select-none items-center gap-3 rounded-lg px-3 py-3 transition-colors duration-200 hover:bg-[#ABBED1]/40 hover:text-sipanen-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sipanen-700 dark:hover:bg-[#ABBED1]/40 motion-reduce:transition-none"
   >
     <span class:list={[warnaIkon, 'shrink-0']}>
       <Ikon nama={ikon} ukuran={22} />
@@ -50,7 +50,7 @@ const warnaIkon = nada === 'peringatan' ? 'text-amber-800' : 'text-sipanen-800';
       <Ikon nama="panah-turun" ukuran={20} />
     </span>
   </summary>
-  <div class="pb-5 pl-8 space-y-3">
+  <div class="pb-5 pl-1 sm:pl-6 space-y-3">
     <slot />
   </div>
 </details>

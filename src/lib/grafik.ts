@@ -23,11 +23,13 @@
  */
 
 import Chart from 'chart.js/auto';
-import type { ChartConfiguration } from 'chart.js';
+import type { ChartConfiguration, ScriptableContext } from 'chart.js';
 
 interface KonfigurasiGrafik {
   /** Label sumbu mendatar, mis. "17 Sep". */
   labels: string[];
+  /** Tanggal ISO lengkap untuk tooltip saat titik grafik disentuh. */
+  tanggal: string[];
   /** Harga yang sudah terjadi. */
   riwayat: (number | null)[];
   /** Angka tengah perkiraan. */
@@ -45,11 +47,12 @@ interface KonfigurasiGrafik {
 function warnaTema() {
   const gelap = document.documentElement.classList.contains('dark');
   return {
-    riwayat: '#2E7D31',
-    perkiraan: '#309CF6',
-    pita: gelap ? 'rgba(48, 156, 246, 0.24)' : 'rgba(48, 156, 246, 0.18)',
-    sumbu: gelap ? '#ABBED1' : '#4D4D4D',
-    kisi: gelap ? '#717171' : '#ABBED1',
+    riwayat: gelap ? '#C0F283' : '#125112',
+    riwayatArea: gelap ? 'rgba(100, 144, 46, 0.24)' : 'rgba(230, 239, 230, 0.85)',
+    perkiraan: gelap ? '#C0F283' : '#125112',
+    pita: gelap ? 'rgba(100, 144, 46, 0.28)' : 'rgba(230, 239, 230, 0.8)',
+    sumbu: gelap ? '#E2E7EA' : '#263238',
+    kisi: gelap ? '#717171' : '#D2D2D2',
     teks: gelap ? '#F8F9FA' : '#263238',
   };
 }
@@ -91,6 +94,7 @@ function opsi(konfigurasi: KonfigurasiGrafik, gerak: boolean): ChartConfiguratio
   return {
     responsive: true,
     maintainAspectRatio: false,
+    font: { family: '"Inter Variable", Inter, sans-serif' },
     // Grafik yang tidak beranimasi tetap dapat dibaca; yang beranimasi tanpa
     // henti justru mengganggu.
     animation: gerak ? { duration: 500, easing: 'easeOutQuart' } : false,
@@ -105,6 +109,16 @@ function opsi(konfigurasi: KonfigurasiGrafik, gerak: boolean): ChartConfiguratio
         titleFont: { size: 14, weight: 'bold' },
         bodyFont: { size: 14 },
         callbacks: {
+          title(items) {
+            const tanggal = konfigurasi.tanggal[items[0]?.dataIndex ?? -1];
+            if (!tanggal) return '';
+            return new Intl.DateTimeFormat('id-ID', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+              timeZone: 'UTC',
+            }).format(new Date(`${tanggal}T00:00:00Z`));
+          },
           label(ctx) {
             const nilai = ctx.parsed.y;
             if (nilai === null || nilai === undefined) return '';
@@ -119,14 +133,24 @@ function opsi(konfigurasi: KonfigurasiGrafik, gerak: boolean): ChartConfiguratio
     },
     scales: {
       x: {
-        ticks: { color: warna.sumbu, font: { size: 12 }, maxRotation: 0, autoSkipPadding: 16 },
+        ticks: {
+          color: warna.sumbu,
+          font: (context) => ({ family: '"Inter Variable", Inter, sans-serif', size: context.chart.width < 480 ? 11 : 14 }),
+          maxRotation: 0,
+          autoSkipPadding: 18,
+          maxTicksLimit: 8,
+          callback(value, index) {
+            const label = konfigurasi.labels[index] ?? String(value);
+            return this.chart.width < 480 ? label.split(' ').slice(1).join(' ') || label : label;
+          },
+        },
         grid: { color: warna.kisi },
       },
       y: {
         beginAtZero: false,
         ticks: {
           color: warna.sumbu,
-          font: { size: 12 },
+          font: (context) => ({ family: '"Inter Variable", Inter, sans-serif', size: context.chart.width < 480 ? 11 : 14 }),
           callback: (v) => rupiahRingkas(Number(v)),
         },
         grid: { color: warna.kisi },
@@ -134,7 +158,7 @@ function opsi(konfigurasi: KonfigurasiGrafik, gerak: boolean): ChartConfiguratio
           display: true,
           text: `Harga per ${konfigurasi.satuan}`,
           color: warna.teks,
-          font: { size: 12, weight: 'bold' },
+          font: { family: '"Inter Variable", Inter, sans-serif', size: 13, weight: 'bold' },
         },
       },
     },
@@ -172,11 +196,12 @@ function gambarPrediksi(canvas: HTMLCanvasElement, cfg: KonfigurasiGrafik, gerak
       label: 'Harga tercatat',
       data: cfg.riwayat,
       borderColor: warna.riwayat,
-      backgroundColor: warna.riwayat,
+      backgroundColor: warna.riwayatArea,
       borderWidth: 3,
-      pointRadius: 0,
-      pointHoverRadius: 5,
-      tension: 0.25,
+      pointRadius: (context: ScriptableContext<'line'>) => context.dataIndex % 7 === 0 ? 3 : 0,
+      pointHoverRadius: 7,
+      tension: 0,
+      fill: true,
       spanGaps: false,
     },
     {
@@ -189,9 +214,9 @@ function gambarPrediksi(canvas: HTMLCanvasElement, cfg: KonfigurasiGrafik, gerak
       // bentuk garis, bukan hanya warna, agar tetap terbaca oleh pengguna
       // dengan gangguan penglihatan warna.
       borderDash: [8, 6],
-      pointRadius: 0,
-      pointHoverRadius: 5,
-      tension: 0.25,
+      pointRadius: (context: ScriptableContext<'line'>) => context.dataIndex % 7 === 0 ? 3 : 0,
+      pointHoverRadius: 7,
+      tension: 0,
       spanGaps: false,
     },
   ];
@@ -217,7 +242,7 @@ function gambarRiwayat(canvas: HTMLCanvasElement, cfg: KonfigurasiGrafik, gerak:
             label: 'Harga tercatat',
             data: cfg.riwayat,
             borderColor: warna.riwayat,
-            backgroundColor: 'rgba(46, 125, 49, 0.12)',
+            backgroundColor: warna.riwayatArea,
             borderWidth: 3,
             pointRadius: 0,
             pointHoverRadius: 5,
@@ -285,6 +310,7 @@ export function gambarSemuaGrafik() {
   const daftar = document.querySelectorAll<HTMLCanvasElement>('canvas[data-grafik]');
 
   daftar.forEach((canvas) => {
+    if (canvas.getClientRects().length === 0) return;
     // Grafik yang belum terlihat ditunda sampai masuk layar, agar animasinya
     // benar-benar terlihat. Bila gerak dikurangi, langsung digambar.
     if (kurangiGerak || !('IntersectionObserver' in window)) {
@@ -308,6 +334,7 @@ export function gambarSemuaGrafik() {
 
 // Dipanggil pada pemuatan pertama maupun setiap perpindahan halaman.
 document.addEventListener('astro:page-load', gambarSemuaGrafik);
+document.addEventListener('sipanen:refresh-charts', gambarSemuaGrafik);
 document.addEventListener('sipanen:theme-change', () => {
   document.querySelectorAll<HTMLCanvasElement>('canvas[data-grafik]').forEach((canvas) => {
     gambarSatu(canvas, false);

@@ -58,8 +58,8 @@ const formatParam = (skenarioId: string, jumlahHari = hari) =>
 <section class="space-y-5 rounded-card border border-stone-300 bg-white p-5 shadow-sm sm:p-7" aria-labelledby="judul-simulasi-tren">
   <div class="rounded-xl border border-stone-300 bg-stone-50 p-4" role="note">
     <div class="flex flex-wrap items-center gap-2">
-      <DataSourceBadge kind="simulasi" warna="realtime" />
-      <DataSourceBadge kind="aktual" warna="realtime" sumber={harga.source} />
+      <DataSourceBadge kind="simulasi" />
+      <DataSourceBadge kind="aktual" sumber={harga.source} />
     </div>
     <h3 id="judul-simulasi-tren" class="mt-3 font-display text-2xl font-bold text-tinta-utama">Ilustrasi tren harga {harga.commodity_name}</h3>
     <p class="mt-2 max-w-4xl text-sm leading-relaxed text-tinta-utama">
@@ -78,8 +78,8 @@ const formatParam = (skenarioId: string, jumlahHari = hari) =>
             class:list={[
               'inline-flex min-h-sentuh items-center rounded-full border px-4 py-2 text-sm font-bold transition-colors',
               item.id === skenario
-                ? 'border-sipanen-700 bg-sipanen-700 text-white'
-                : 'border-kertas-garis bg-white text-tinta-utama hover:border-sipanen-600 hover:bg-sipanen-50',
+                ? 'border-[#B9D0AD] bg-[#DCE9D2] text-[#125112] hover:bg-[#C5D9BC]'
+                : 'border-[#C7D2DF] bg-white text-[#344054] hover:bg-[#C5D9BC]',
             ]}
           >
             {item.nama}
@@ -95,10 +95,10 @@ const formatParam = (skenarioId: string, jumlahHari = hari) =>
             href={formatParam(skenario, jumlahHari)}
             aria-current={jumlahHari === hari ? 'true' : undefined}
             class:list={[
-              'inline-flex min-h-sentuh min-w-12 items-center justify-center rounded-full border px-3 py-2 text-sm font-bold',
+              'inline-flex min-h-sentuh min-w-12 items-center justify-center rounded-full border px-3 py-2 text-sm font-bold transition-colors',
               jumlahHari === hari
-                ? 'border-sipanen-700 bg-sipanen-50 text-sipanen-900'
-                : 'border-kertas-garis bg-white text-tinta-utama hover:border-sipanen-600',
+                ? 'border-[#B9D0AD] bg-[#DCE9D2] text-[#125112] hover:bg-[#C5D9BC]'
+                : 'border-[#C7D2DF] bg-white text-[#344054] hover:bg-[#C5D9BC]',
             ]}
           >
             {jumlahHari} hari
@@ -123,22 +123,22 @@ const formatParam = (skenarioId: string, jumlahHari = hari) =>
     </div>
   </div>
 
-  <div class="overflow-x-auto rounded-xl border border-kertas-garis bg-[#FCFDF9] p-2 sm:p-4">
+  <div class="overflow-x-auto rounded-xl border border-kertas-garis bg-kertas-lembut p-2 sm:p-4">
     <svg viewBox={`0 0 ${lebar} ${tinggi}`} class="h-auto min-w-[34rem] w-full" role="img" aria-labelledby="judul-grafik-simulasi deskripsi-grafik-simulasi">
       <title id="judul-grafik-simulasi">Ilustrasi skenario {terpilih.nama.toLowerCase()} harga {harga.commodity_name}</title>
       <desc id="deskripsi-grafik-simulasi">Garis tengah menunjukkan skenario ilustrasi, sedangkan bidang hijau menunjukkan rentang contoh yang melebar hingga hari ke-{hari}. Ini bukan hasil model prediksi.</desc>
       {fraksiSumbu.map((fraksi, indeks) => (
         <g>
-          <line x1={kiri} x2={lebar - kanan} y1={atas + tinggiGrafik * fraksi} y2={atas + tinggiGrafik * fraksi} stroke="#DCE5D5" stroke-dasharray="4 5" />
-          <text x={kiri - 10} y={atas + tinggiGrafik * fraksi + 5} text-anchor="end" fill="#52615B" font-size="12">{rupiah(nilaiSumbu[indeks])}</text>
+          <line x1={kiri} x2={lebar - kanan} y1={atas + tinggiGrafik * fraksi} y2={atas + tinggiGrafik * fraksi} stroke="#ABBED1" stroke-dasharray="4 5" />
+          <text x={kiri - 10} y={atas + tinggiGrafik * fraksi + 5} text-anchor="end" fill="currentColor" font-size="12">{rupiah(nilaiSumbu[indeks])}</text>
         </g>
       ))}
-      <polygon points={jalurPita} fill="#BDE8A9" fill-opacity="0.58" />
-      <polyline points={jalurTengah} fill="none" stroke="#477F2B" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
-      <circle cx={x(0)} cy={y(titik[0].tengah)} r="6" fill="#477F2B" stroke="white" stroke-width="3" />
-      <circle cx={x(titik.length - 1)} cy={y(titikAkhir.tengah)} r="6" fill="#477F2B" stroke="white" stroke-width="3" />
+      <polygon points={jalurPita} fill="#C0F283" fill-opacity="0.58" />
+      <polyline points={jalurTengah} fill="none" stroke="#64902E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+      <circle cx={x(0)} cy={y(titik[0].tengah)} r="6" fill="#64902E" stroke="white" stroke-width="3" />
+      <circle cx={x(titik.length - 1)} cy={y(titikAkhir.tengah)} r="6" fill="#64902E" stroke="white" stroke-width="3" />
       {[0, 6, 12].map((indeks) => (
-        <text x={x(indeks)} y={tinggi - 18} text-anchor={indeks === 0 ? 'start' : indeks === 12 ? 'end' : 'middle'} fill="#52615B" font-size="12">Hari ke-{titik[indeks].hari}</text>
+        <text x={x(indeks)} y={tinggi - 18} text-anchor={indeks === 0 ? 'start' : indeks === 12 ? 'end' : 'middle'} fill="currentColor" font-size="12">Hari ke-{titik[indeks].hari}</text>
       ))}
     </svg>
   </div>

@@ -27,6 +27,7 @@
  * menambah kemudahan apa pun.
  */
 import Ikon from './Ikon.astro';
+import IkonArahHarga from './IkonArahHarga.astro';
 
 export interface Props {
   nada: 'bagus' | 'hati' | 'buruk' | 'netral';
@@ -54,6 +55,10 @@ const sisiIkon = ukuran === 'besar' ? 26 : 20;
 <span
   class:list={['inline-flex max-w-full items-start rounded-control border bg-white font-bold leading-snug', g.kelas, sisi]}
 >
-  <Ikon nama={ikon ?? g.bawaan} ukuran={sisiIkon} kelas="shrink-0" />
+  {(ikon ?? g.bawaan) === 'panah-turun' ? (
+    <IkonArahHarga arah="turun" ukuran={Math.max(10, sisiIkon - 10)} />
+  ) : (
+    <Ikon nama={ikon ?? g.bawaan} ukuran={sisiIkon} kelas="shrink-0" />
+  )}
   <span class="min-w-0">{teks}</span>
 </span>

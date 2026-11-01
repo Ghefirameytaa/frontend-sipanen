@@ -1,0 +1,23 @@
+---
+interface Props {
+  arah: 'naik' | 'turun' | 'stabil';
+  ukuran?: number;
+}
+
+const { arah } = Astro.props;
+const warna = arah === 'turun'
+  ? 'text-red-700'
+  : arah === 'naik'
+    ? 'text-emerald-700'
+    : 'text-stone-600';
+const simbol = arah === 'turun' ? '▼' : arah === 'naik' ? '▲' : '—';
+---
+
+<span
+  class:list={['inline-flex shrink-0 items-center justify-center', warna]}
+  aria-hidden="true"
+>
+  <span class:list={['font-black leading-none', arah === 'stabil' ? 'text-[10px]' : 'text-[11px]']}>
+    {simbol}
+  </span>
+</span>

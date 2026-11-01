@@ -1,52 +1,19 @@
 ---
 /**
- * ForecastChart — grafik riwayat harga dan perkiraan ke depan.
- *
- * TIGA HAL YANG WAJIB TAMPIL BERSAMA GRAFIK INI
- * ----------------------------------------------
- * Ketentuan proyek melarang prediksi disajikan sebagai kepastian. Karena itu
- * grafik ini tidak pernah tampil sendirian:
- *
- *  1. Pita ketidakpastian — rentang bawah dan atas selalu digambar. Grafik
- *     prediksi tanpa rentang membuat angka tengah tampak seperti kepastian.
- *  2. Angka batas bawah dan batas atas — selalu tertulis, tidak hanya digambar.
- *     Kanvas tidak terbaca pembaca layar dan tidak terbaca saat dicetak.
- *  3. Catatan akurasi — hasil evaluasi model apa adanya, termasuk ketika model
- *     kalah dari cara sederhana, dan termasuk ketika belum pernah diuji.
- *
- * YANG BERUBAH
- * ------------
- * Sebelumnya bagian akurasi berupa dua paragraf. Bagi pembaca lanjut usia,
- * pertanyaan "seberapa jauh model ini bisa meleset?" jauh lebih cepat dijawab
- * oleh dua batang yang panjangnya sebanding daripada oleh dua angka di tengah
- * kalimat. Karena itu galat model dan galat cara sederhana kini digambar
- * sebagai `BatangBanding` — tetapi angka rupiahnya tetap tertulis penuh, dan
- * putusannya tetap satu kalimat utuh yang selalu tampil, termasuk kalimat yang
- * menyatakan model KALAH.
- *
- * Paragraf penjelasannya tidak dihapus; ia dipindahkan ke `Lipatan`.
+ * ForecastChart: grafik riwayat harga dan perkiraan ke depan.
+ * Grafik menampilkan rentang ketidakpastian dan angka batas bawah/atas
+ * agar perkiraan tidak tampak sebagai kepastian.
+ * Evaluasi akurasi model tidak ditampilkan di sini.
  */
-import type { ForecastSeries } from '../lib/api';
+import type { ForecastPoint, ForecastSeries } from '../lib/api';
 import { rupiah, tanggalPanjang, tanggalRingkas } from '../lib/api';
-import { sebutanRentang, lebarRentang } from '../lib/rentang';
-import BatangBanding from './BatangBanding.astro';
-import DataSourceBadge from './DataSourceBadge.astro';
-import Ikon from './Ikon.astro';
-import Lencana from './Lencana.astro';
-import Lipatan from './Lipatan.astro';
-import PitaPasti from './PitaPasti.astro';
 
 export interface Props {
   seri: ForecastSeries;
-  /**
-   * Berapa banyak titik perkiraan yang ditampilkan pada tabel. Grafik tetap
-   * memuat seluruhnya; tabel dibatasi agar tidak menjadi ratusan baris yang
-   * tidak terbaca.
-   */
-  barisTabel?: number;
+  hariKerja: ForecastPoint[];
 }
 
-const { seri, barisTabel = 14 } = Astro.props;
+const { seri, hariKerja } = Astro.props;
 
 const idUnik = `grafik-${seri.commodity_code}-${Math.random().toString(36).slice(2, 8)}`;
 const idKonfigurasi = `${idUnik}-data`;
@@ -55,6 +22,7 @@ const labels = [
   ...seri.history.map((h) => tanggalRingkas(h.date)),
   ...seri.forecast.map((f) => tanggalRingkas(f.date)),
 ];
+const tanggalGrafik = [...seri.history.map((h) => h.date), ...seri.forecast.map((f) => f.date)];
 
 // Deret riwayat diisi sampai ujung, deret perkiraan dibiarkan kosong di bagian
 // riwayat. Titik sambungnya ditambahkan oleh penggambar grafik.
@@ -63,6 +31,7 @@ const kosongPerkiraan = new Array(seri.history.length).fill(null);
 
 const konfigurasi = {
   labels,
+  tanggal: tanggalGrafik,
   riwayat: [...seri.history.map((h) => h.price), ...kosongRiwayat],
   perkiraan: [...kosongPerkiraan, ...seri.forecast.map((f) => f.predicted)],
   atas: [...kosongPerkiraan, ...seri.forecast.map((f) => f.upper)],
@@ -77,291 +46,93 @@ const konfigurasi = {
 const konfigurasiAman = JSON.stringify(konfigurasi).replace(/</g, '\\u003c');
 
 const titikTerakhir = seri.forecast[seri.forecast.length - 1];
+const batasBawah = hariKerja.length ? Math.min(...hariKerja.map((titik) => titik.lower)) : null;
+const batasAtas = hariKerja.length ? Math.max(...hariKerja.map((titik) => titik.upper)) : null;
+const tanggalAwalHariKerja = hariKerja[0]?.date;
+const tanggalAkhirHariKerja = hariKerja[hariKerja.length - 1]?.date;
 
-const selisih =
-  seri.current_price > 0 && titikTerakhir
-    ? ((titikTerakhir.predicted - seri.current_price) / seri.current_price) * 100
-    : null;
+const puncakPerkiraan = seri.forecast.reduce<ForecastSeries['forecast'][number] | null>(
+  (tertinggi, titik) => (!tertinggi || titik.predicted > tertinggi.predicted ? titik : tertinggi),
+  null
+);
 
-// Putusan sekilas, ditampilkan DI ATAS grafik supaya pembaca yang tidak
-// mengikuti garis tetap membawa pulang arah dan lebarnya rentang.
-const arah =
-  selisih === null
-    ? { nada: 'netral' as const, teks: 'Arah belum dapat dihitung', ikon: 'tanya' }
-    : selisih >= 0
-      ? { nada: 'bagus' as const, teks: 'Perkiraan harga naik', ikon: 'panah-naik' }
-      : { nada: 'hati' as const, teks: 'Perkiraan harga turun', ikon: 'panah-turun' };
-
-const lebarTerakhir = titikTerakhir
-  ? lebarRentang(titikTerakhir.lower, titikTerakhir.predicted, titikTerakhir.upper)
-  : Number.NaN;
-const putusanRentang = sebutanRentang(lebarTerakhir);
-
-const barisPerkiraan = seri.forecast.slice(0, barisTabel);
-const adaRiwayat = seri.history.length > 0;
-
-// Akurasi: hanya bermakna bila sudah dievaluasi DAN ada pembandingnya.
-const adaAkurasi = seri.accuracy.evaluated;
-const adaPembanding = adaAkurasi && Boolean(seri.accuracy.baseline_name);
-
-const putusanAkurasi = !adaAkurasi
-  ? { nada: 'hati' as const, teks: 'Model belum pernah diuji', ikon: 'tanya' }
-  : seri.accuracy.beats_baseline
-    ? { nada: 'bagus' as const, teks: 'Model lebih baik', ikon: 'centang' }
-    : { nada: 'hati' as const, teks: 'Model belum lebih baik', ikon: 'peringatan' };
 ---
 
-<section class="space-y-5">
+<section class="space-y-6">
   <header class="border-b border-kertas-garis pb-4">
-    <div class="flex flex-wrap items-center gap-3 justify-between">
-      <h2 class="text-2xl font-bold">
+    <div class="flex flex-wrap items-center gap-4 justify-between">
+      <h2 class="text-xl font-bold sm:text-2xl">
         {seri.commodity_name}
-        <span class="text-tinta-redup font-medium text-lg">({seri.variety})</span>
+        <span class="text-tinta-redup font-medium text-sm sm:text-lg">({seri.variety})</span>
       </h2>
-      <div class="flex flex-wrap items-center gap-2">
-        <DataSourceBadge kind="prediksi" />
-        <DataSourceBadge kind="aktual" ukuran="kecil" />
-      </div>
     </div>
 
-    {
-      adaRiwayat && (
-        <p class="text-tinta-kedua mt-2">
-          Harga terakhir tercatat <strong>{rupiah(seri.current_price)}</strong> per {seri.unit} pada{' '}
-          {tanggalPanjang(seri.current_price_date)}.
-        </p>
-      )
-    }
   </header>
 
-  <div class="space-y-5">
-    <!-- Jalur putusan: dua hal yang paling sering ditanyakan, dijawab sebelum
-         grafiknya dilihat. -->
-    <div class="flex flex-wrap gap-3">
-      <Lencana nada={arah.nada} teks={arah.teks} ikon={arah.ikon} ukuran="besar" />
-      {
-        titikTerakhir && (
-          <Lencana nada={putusanRentang.nada} teks={putusanRentang.teks} ikon="banding" ukuran="besar" />
-        )
-      }
-    </div>
+  {batasBawah !== null && batasAtas !== null && tanggalAwalHariKerja && tanggalAkhirHariKerja && (
+    <article class="rounded-card border border-[#125112]/35 bg-[#E6EFE6] p-4 text-center shadow-sm dark:border-[#64902E]/60 dark:bg-[#263238] sm:p-6" aria-label={`Rentang kemungkinan harga selama ${hariKerja.length} hari kerja`}>
+      <p class="mb-2 text-[10px] font-bold uppercase tracking-wide text-[#125112] dark:text-[#C0F283] sm:text-xs">Rentang harga · {hariKerja.length} hari kerja</p>
+      <p class="mt-1 whitespace-nowrap font-display text-[clamp(1rem,5vw,1.5rem)] font-extrabold leading-tight tabular-nums text-tinta-utama sm:text-4xl">
+        {rupiah(batasBawah)} – {rupiah(batasAtas)}<span class="text-[0.7em] font-semibold"> / {seri.unit}</span>
+      </p>
+      <p class="mt-2 text-[10px] text-tinta-kedua sm:text-xs">
+        Periode 5 hari kerja: <time datetime={tanggalAwalHariKerja}>{tanggalPanjang(tanggalAwalHariKerja)}</time> s.d. <time datetime={tanggalAkhirHariKerja}>{tanggalPanjang(tanggalAkhirHariKerja)}</time>
+      </p>
+    </article>
+  )}
 
-    <!-- Keterangan garis. Ditulis di HTML, bukan di dalam kanvas, agar
-         ukurannya dapat diperbesar dan terbaca pembaca layar. -->
-    <ul class="flex flex-wrap gap-x-6 gap-y-2 text-lg" aria-label="Keterangan grafik">
-      <li class="flex items-center gap-2">
-        <span class="w-8 h-1 rounded bg-sipanen-700" aria-hidden="true"></span>
-        <span>Sudah terjadi</span>
-      </li>
-      <li class="flex items-center gap-2">
-        <span
-          class="w-8 h-1 rounded"
-          style="background-image: repeating-linear-gradient(90deg,#309CF6 0 8px,transparent 8px 14px);"
-          aria-hidden="true"
-        ></span>
-        <span>Perkiraan</span>
-      </li>
-      <li class="flex items-center gap-2">
-        <span class="w-4 h-3 rounded-sm" style="background-color: rgba(48,156,246,0.18);" aria-hidden="true"
-        ></span>
-        <span>Rentang kemungkinan</span>
-      </li>
+  <div class="grid gap-4 sm:grid-cols-3">
+    <article class="rounded-card border border-kertas-garis border-l-4 border-l-[#125112] bg-white p-4 shadow-sm">
+      <h3 class="text-xs font-semibold uppercase tracking-wide text-tinta-kedua">Harga terkini</h3>
+      <p class="mt-1 text-xl font-extrabold tabular-nums text-[#125112] dark:text-[#C0F283]">{rupiah(seri.current_price)} / {seri.unit}</p>
+      <p class="mt-1 text-sm text-tinta-kedua">{tanggalPanjang(seri.current_price_date)}</p>
+    </article>
+
+    <article class="rounded-card border border-kertas-garis border-l-4 border-l-amber-500 bg-white p-4 shadow-sm">
+      <h3 class="text-xs font-semibold uppercase tracking-wide text-tinta-kedua">Tertinggi dari 7 hari prediksi</h3>
+      {puncakPerkiraan ? (
+        <>
+          <p class="mt-1 text-xl font-extrabold tabular-nums text-amber-800">{rupiah(puncakPerkiraan.predicted)} / {seri.unit}</p>
+          <p class="mt-1 text-sm text-tinta-kedua">Perkiraan {tanggalPanjang(puncakPerkiraan.date)}</p>
+        </>
+      ) : <p class="mt-1 font-semibold text-tinta-kedua">Belum tersedia</p>}
+    </article>
+
+    <article class="rounded-card border border-kertas-garis border-l-4 border-l-[#125112] bg-white p-4 shadow-sm">
+      <h3 class="text-xs font-semibold uppercase tracking-wide text-tinta-kedua">Perkiraan hari ke-7</h3>
+      {titikTerakhir ? (
+        <>
+          <p class="mt-1 text-xl font-extrabold tabular-nums text-[#125112] dark:text-[#C0F283]">{rupiah(titikTerakhir.predicted)} / {seri.unit}</p>
+          <p class="mt-1 text-sm text-tinta-kedua">{tanggalPanjang(titikTerakhir.date)}</p>
+        </>
+      ) : <p class="mt-1 font-semibold text-tinta-kedua">Belum tersedia</p>}
+    </article>
+  </div>
+
+  <section class="overflow-hidden rounded-card border border-kertas-garis bg-white p-4 shadow-sm sm:p-6" aria-labelledby={`${idUnik}-judul-grafik`}>
+    <header class="mb-5 flex flex-wrap items-start justify-between gap-4 border-b border-kertas-garis pb-5">
+      <div>
+        <h3 id={`${idUnik}-judul-grafik`} class="font-display text-xl font-bold text-tinta-utama sm:text-2xl">Tren harga {seri.commodity_name}</h3>
+        <p class="mt-1 text-sm leading-relaxed text-tinta-kedua">Kurva memuat 7 hari sebelumnya dan 7 hari prediksi. Garis utuh menunjukkan harga tercatat, garis putus-putus adalah perkiraan, dan arsiran menunjukkan rentangnya.</p>
+      </div>
+    </header>
+
+    <ul class="mb-4 flex flex-wrap gap-x-5 gap-y-3 text-sm text-tinta-kedua sm:text-base" aria-label="Keterangan grafik">
+      <li class="flex items-center gap-2"><span class="h-3 w-4 rounded-sm border-t-2 border-[#125112] bg-[#E6EFE6] dark:bg-[#3F4A33]" aria-hidden="true"></span>Harga tercatat</li>
+      <li class="flex items-center gap-2"><span class="h-0 w-7 border-t-2 border-dashed border-[#125112] dark:border-[#C0F283]" aria-hidden="true"></span>Perkiraan</li>
+      <li class="flex items-center gap-2"><span class="h-3 w-4 rounded-sm bg-[#E6EFE6] dark:bg-[#3F4A33]" aria-hidden="true"></span>Rentang kemungkinan</li>
     </ul>
 
-    <div class="relative" style="height: 320px;">
+    <p class="mb-2 text-sm leading-relaxed text-tinta-kedua">Ketuk grafik untuk melihat tanggal dan harga.</p>
+    <div class="relative h-72 sm:h-96">
       <canvas
         data-grafik="prediksi"
         data-konfigurasi={idKonfigurasi}
         role="img"
-        aria-label={`Grafik harga dan perkiraan harga ${seri.commodity_name} dalam rupiah per ${seri.unit}. Angka lengkap tersedia pada tabel di bawah grafik.`}
+        aria-label={`Grafik harga tercatat dan perkiraan harga ${seri.commodity_name} dalam rupiah per ${seri.unit}. Nilai setiap tanggal dapat dibaca melalui grafik.`}
       ></canvas>
     </div>
-
     <script type="application/json" id={idKonfigurasi} set:html={konfigurasiAman} />
+  </section>
 
-    <!-- Angka perkiraan pada hari terjauh. Batas bawah dan batas atas WAJIB
-         tertulis; grafik saja tidak cukup. -->
-    {
-      titikTerakhir && (
-        <div>
-          <h3 class="font-bold text-xl mb-3 flex items-center gap-2">
-            <Ikon nama="prediksi" ukuran={24} />
-            Perkiraan pada {tanggalPanjang(titikTerakhir.date)}
-          </h3>
-          <PitaPasti
-            teksBawah={rupiah(titikTerakhir.lower)}
-            teksTengah={rupiah(titikTerakhir.predicted)}
-            teksAtas={rupiah(titikTerakhir.upper)}
-            nilaiBawah={titikTerakhir.lower}
-            nilaiTengah={titikTerakhir.predicted}
-            nilaiAtas={titikTerakhir.upper}
-            persen={lebarTerakhir}
-            satuan={seri.unit}
-          />
-        </div>
-      )
-    }
-
-    <!-- Perbandingan dengan harga terakhir. Dua batang, supaya selisihnya
-         terlihat tanpa membaca kalimat. -->
-    {
-      titikTerakhir && selisih !== null && (
-        <BatangBanding
-          kiri={{
-            label: 'Harga terakhir',
-            nilai: seri.current_price,
-            teks: rupiah(seri.current_price),
-            nada: 'netral',
-          }}
-          kanan={{
-            label: `Perkiraan ${tanggalPanjang(titikTerakhir.date)}`,
-            nilai: titikTerakhir.predicted,
-            teks: rupiah(titikTerakhir.predicted),
-            nada: selisih >= 0 ? 'utama' : 'peringatan',
-          }}
-          keterangan={`Angka tengah perkiraan ${selisih >= 0 ? 'lebih tinggi' : 'lebih rendah'} sekitar ${Math.abs(selisih).toFixed(1)}% dari harga terakhir. Perkiraan, bukan janji.`}
-        />
-      )
-    }
-
-    <!-- ── Akurasi ──────────────────────────────────────────────────────────
-         Ditampilkan apa adanya, termasuk ketika model kalah dan ketika model
-         belum pernah diuji. -->
-    <div class="border-t border-kertas-garis pt-4 space-y-4">
-      <h3 class="font-bold text-xl flex items-center gap-2">
-        <Ikon nama="banding" ukuran={24} />
-        Seberapa jauh model ini bisa meleset?
-      </h3>
-
-      <Lencana
-        nada={putusanAkurasi.nada}
-        teks={putusanAkurasi.teks}
-        ikon={putusanAkurasi.ikon}
-        ukuran="besar"
-      />
-
-      {
-        adaAkurasi ? (
-          <div class="space-y-4">
-            {adaPembanding && (
-              <BatangBanding
-                kiri={{
-                  label: 'Selisih model ini',
-                  nilai: seri.accuracy.mae,
-                  teks: rupiah(seri.accuracy.mae),
-                  nada: seri.accuracy.beats_baseline ? 'utama' : 'peringatan',
-                }}
-                kanan={{
-                  label: `Selisih cara sederhana`,
-                  nilai: seri.accuracy.baseline_mae,
-                  teks: rupiah(seri.accuracy.baseline_mae),
-                  nada: 'netral',
-                }}
-                keterangan={`Makin pendek batangnya, makin dekat ke kenyataan. Diukur pada ${seri.accuracy.test_rows} hari data yang tidak dipakai melatih model.`}
-              />
-            )}
-
-            {/* Satu kalimat putusan yang selalu tampil — terutama kalimat yang
-                menyatakan model BELUM lebih baik. Ini tidak boleh tersembunyi
-                di dalam lipatan. */}
-            <p
-              class:list={[
-                'font-semibold text-lg',
-                seri.accuracy.beats_baseline ? 'text-sipanen-800' : 'text-amber-900',
-              ]}
-            >
-              {
-                adaPembanding
-                  ? seri.accuracy.beats_baseline
-                    ? `Model ini lebih dekat ke kenyataan daripada cara sederhana (menganggap harga besok sama dengan hari ini). Rata-rata meleset ${rupiah(seri.accuracy.mae)} per ${seri.unit}.`
-                    : `Model ini belum terbukti lebih baik daripada cara sederhana (menganggap harga besok sama dengan hari ini). Rata-rata model meleset ${rupiah(seri.accuracy.mae)}, cara sederhana ${rupiah(seri.accuracy.baseline_mae)}. Jangan bersandar pada angkanya saja.`
-                  : `Model ini sudah diuji, tetapi belum ada pembandingnya. Rata-rata meleset ${rupiah(seri.accuracy.mae)} per ${seri.unit}.`
-              }
-            </p>
-
-            <Lipatan judul="Rincian pengujian" ikon="buku">
-              <div class="space-y-2">
-                <p>
-                  Rata-rata selisih antara perkiraan dan kenyataan adalah{' '}
-                  <strong>{rupiah(seri.accuracy.mae)}</strong> per {seri.unit}
-                  {seri.accuracy.mape > 0 && (
-                    <>
-                      , atau sekitar <strong>{seri.accuracy.mape.toFixed(1)}%</strong>
-                    </>
-                  )}
-                  .
-                </p>
-                {seri.accuracy.baseline_name && (
-                  <p>
-                    Pembandingnya adalah cara paling sederhana: menganggap harga besok sama dengan
-                    hari ini (<em>{seri.accuracy.baseline_name}</em>). Cara itu menghasilkan
-                    selisih {rupiah(seri.accuracy.baseline_mae)}.
-                  </p>
-                )}
-                <p class="text-sm text-tinta-redup">
-                  Diuji pada {seri.accuracy.test_rows} hari data yang tidak dipakai melatih model.
-                  Versi model {seri.accuracy.model_version || '—'}.
-                  {seri.accuracy.notes ? ` ${seri.accuracy.notes}` : ''}
-                </p>
-              </div>
-            </Lipatan>
-          </div>
-        ) : (
-          <p class="text-amber-900 text-lg">
-            Model untuk komoditas ini <strong>belum pernah diuji</strong>, sehingga tingkat
-            ketepatannya belum diketahui. Angka perkiraan di atas tetap dapat dilihat, tetapi
-            perlakukan sebagai gambaran kasar — bukan hasil yang sudah terukur.
-          </p>
-        )
-      }
-    </div>
-  </div>
-
-  <!--
-    Tabel angka. Wajib ada: pembaca layar tidak dapat membaca kanvas, dan
-    sebagian pembaca lanjut usia jauh lebih mudah membaca baris angka.
-    Bentuknya `Lipatan` supaya seragam dengan tombol buka-tutup lain di
-    dashboard.
-  -->
-  <div class="border-t border-kertas-garis pt-4">
-    <Lipatan judul={`Lihat angka perkiraan (${seri.forecast.length} hari)`} ikon="banding">
-      <div class="overflow-x-auto">
-        <table class="w-full border-collapse">
-          <caption class="sr-only">
-            Perkiraan harga {seri.commodity_name} per hari beserta rentangnya
-          </caption>
-          <thead>
-            <tr class="text-left border-b-2 border-kertas-garis">
-              <th scope="col" class="py-3 pr-4 font-bold">Tanggal</th>
-              <th scope="col" class="py-3 pr-4 font-bold text-right">Terendah</th>
-              <th scope="col" class="py-3 pr-4 font-bold text-right">Angka tengah</th>
-              <th scope="col" class="py-3 font-bold text-right">Tertinggi</th>
-            </tr>
-          </thead>
-          <tbody>
-            {
-              barisPerkiraan.map((f) => (
-                <tr class="border-b border-kertas-garis">
-                  <th scope="row" class="py-3 pr-4 font-medium text-left">
-                    {tanggalPanjang(f.date)}
-                  </th>
-                  <td class="py-3 pr-4 text-right tabular-nums">{rupiah(f.lower)}</td>
-                  <td class="py-3 pr-4 text-right tabular-nums font-bold">{rupiah(f.predicted)}</td>
-                  <td class="py-3 text-right tabular-nums">{rupiah(f.upper)}</td>
-                </tr>
-              ))
-            }
-          </tbody>
-        </table>
-        {
-          seri.forecast.length > barisTabel && (
-            <p class="text-tinta-redup mt-3">
-              Ditampilkan {barisTabel} hari pertama dari {seri.forecast.length} hari yang
-              diperkirakan. Rentang yang jauh ke depan semakin tidak pasti.
-            </p>
-          )
-        }
-      </div>
-    </Lipatan>
-  </div>
 </section>

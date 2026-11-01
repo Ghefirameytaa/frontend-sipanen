@@ -28,16 +28,16 @@ const publicApiBase =
   description="Periksa gejala penyakit daun cabai atau tomat menggunakan layanan diagnosis AI SiPanen."
 >
   <div class="space-y-10">
-    <section data-page-hero class="relative isolate overflow-hidden rounded-panel bg-[#64902E] text-white shadow-lg">
+    <section data-page-hero class="relative isolate overflow-hidden rounded-panel bg-[#125112] text-white shadow-lg">
       <img src="https://images.unsplash.com/photo-1592841200221-a6898f307baa?auto=format&fit=crop&w=1600&q=85" alt="Tanaman tomat di kebun" class="absolute inset-0 z-0 h-full w-full object-cover opacity-35" width="1600" height="900" />
-      <div data-page-hero-overlay class="absolute inset-0 z-10 bg-gradient-to-r from-[#64902E] via-[#64902E]/90 to-[#64902E]/35" aria-hidden="true"></div>
+      <div data-page-hero-overlay class="absolute inset-0 z-10 bg-gradient-to-r from-[#125112] via-[#125112]/90 to-[#125112]/35" aria-hidden="true"></div>
       <div class="relative z-20 grid gap-6 px-4 py-7 sm:gap-8 sm:px-10 sm:py-12 lg:grid-cols-[1.1fr_0.9fr] lg:px-14 lg:py-14">
         <header>
           <p data-page-hero-badge class="mb-3 inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#EAF2CF] px-2.5 py-1.5 text-[10px] font-bold uppercase leading-tight tracking-[0.04em] text-[#263238] sm:gap-2 sm:px-3 sm:text-sm sm:tracking-wide">
-            <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#64902E]" aria-hidden="true"></span>
+            <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#125112]" aria-hidden="true"></span>
             <span class="min-w-0">Kesehatan tanaman · AI</span>
           </p>
-          <h1 class="font-display max-w-2xl text-3xl font-semibold leading-tight sm:text-4xl">Kenali gejala lebih awal, rawat tanaman dengan tepat.</h1>
+          <h1 class="font-display max-w-2xl text-2xl font-semibold leading-tight sm:text-3xl">Kenali gejala lebih awal, rawat tanaman dengan tepat.</h1>
           <p class="mt-4 max-w-2xl text-base text-green-50 sm:text-lg">
             Unggah foto daun cabai atau tomat untuk mendapatkan perkiraan diagnosis dan arahan penanganan awal.
           </p>
@@ -65,7 +65,7 @@ const publicApiBase =
       <div class="rounded-card border border-kertas-garis bg-white p-4 shadow-sm sm:p-8">
         <div class="mb-6">
           <p class="text-sm font-bold uppercase text-sipanen-800">Mulai pemeriksaan</p>
-          <h2 id="judul-scan" class="mt-1 font-display text-3xl font-semibold">Pilih foto tanaman</h2>
+          <h2 id="judul-scan" class="mt-1 font-display text-2xl font-semibold sm:text-3xl">Pilih foto tanaman</h2>
         </div>
         <PlantDiseaseUpload />
         <section aria-label="Hasil diagnosis penyakit" aria-live="polite" class="mt-6">
@@ -73,6 +73,7 @@ const publicApiBase =
         </section>
       </div>
     </section>
+  </div>
 </MainLayout>
 
 <script is:inline define:vars={{ publicApiBase }}>

@@ -1,88 +1,418 @@
 ---
 import MainLayout from '../layouts/MainLayout.astro';
 import DataState from '../components/DataState.astro';
-import { getCommodities, getPlantingSchedule, getPlantingPriceForecast, getFailureRisk, rupiah } from '../lib/api';
+import IkonArahHarga from '../components/IkonArahHarga.astro';
+import Ikon from '../components/Ikon.astro';
+import { getFullKalenderTanam } from '../lib/api';
 import { wilayahAktif } from '../lib/wilayah';
 
 const wilayah = await wilayahAktif();
-const komoditasResult = wilayah.ok ? await getCommodities(wilayah.data.id) : null;
-const komoditas = komoditasResult?.ok ? komoditasResult.data.filter((item) => item.is_active) : [];
 const params = Astro.url.searchParams;
-const selected = params.get('komoditas') ?? komoditas[0]?.name ?? 'Cabai Rawit Merah';
-const luasInput = Number(params.get('luas') ?? 100);
-const luas = Number.isFinite(luasInput) ? Math.max(1, Math.min(100000, Math.round(luasInput))) : 100;
-const phase = params.get('fase') ?? 'Pembentukan Buah';
-const load = params.has('lihat') && wilayah.ok
-  ? await Promise.all([
-      getPlantingSchedule({ komoditas: selected, luas_ubin: luas }),
-      getPlantingPriceForecast(selected),
-      getFailureRisk({ komoditas: selected, fase_tanaman: phase, luas_ubin: luas, blok_wilayah: wilayah.data.name }),
-    ])
-  : null;
-const schedule = load?.[0]?.ok ? load[0].data : null;
-const prices = load?.[1]?.ok ? load[1].data : null;
-const risk = load?.[2]?.ok ? load[2].data : null;
-const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-const format = (n: number) => new Intl.NumberFormat('id-ID').format(n);
+const selectedParam = (params.get('komoditas') ?? '').trim().toLowerCase();
+
+const fullKalenderRes = await getFullKalenderTanam();
+const fullKalender = fullKalenderRes.ok ? fullKalenderRes.data : null;
+const kalender12 = fullKalender?.kalender ?? [];
+const ringkasanMusim = fullKalender?.ringkasan_musim ?? null;
+const perMusim = ringkasanMusim?.per_musim ?? {};
+const metadata = fullKalender?.metadata ?? {};
+
+const rentangMusim = (jenis: string) => {
+  const data = perMusim[jenis];
+  if (!data) return 'Belum tersedia';
+  return data.jumlah_bulan === 0 ? 'Tidak ada' : data.rentang_bulan ?? 'Belum tersedia';
+};
+
+const komoditasMapAwal = kalender12[0]?.komoditas ?? {};
+const daftarKomoditas = Object.entries(komoditasMapAwal).map(([key, val]: [string, any]) => {
+  const bulanEmas: string[] = [];
+  const bulanCocok: string[] = [];
+  for (const row of kalender12) {
+    const kData = row?.komoditas?.[key];
+    if (!kData) continue;
+    if (kData.status === 'Cocok' && kData.tren_harga_panen === 'Naik') {
+      bulanEmas.push(row.nama_bulan);
+    }
+    if (kData.status === 'Cocok') {
+      bulanCocok.push(row.nama_bulan);
+    }
+  }
+  const rekomendasiUtama =
+    bulanEmas.length > 0
+      ? `${bulanEmas.join(', ')} (Cuaca Cocok & Harga Panen Naik)`
+      : bulanCocok.length > 0
+        ? `${bulanCocok.join(', ')} (Cuaca Cocok)`
+        : '-';
+
+  return {
+    key,
+    name: val?.nama ?? key,
+    hst: val?.durasi_hari,
+    satuan: val?.satuan_durasi ?? metadata?.satuan_umur_tanam ?? 'HST',
+    rekomendasiUtama,
+  };
+});
+
+const defaultKomoditasKey =
+  daftarKomoditas.find(
+    (k) => k.key.toLowerCase() === selectedParam || k.name.toLowerCase() === selectedParam
+  )?.key ??
+  daftarKomoditas[0]?.key ??
+  'cabai_rawit_merah';
+
+const musimStyle = (kat?: string, label?: string) => {
+  return { badge: 'bg-slate-100 text-slate-700 border-slate-200', text: label || (kat === 'peralihan' ? 'Peralihan' : kat === 'kemarau' ? 'Kemarau' : 'Musim Hujan') };
+};
+
+const statusStyle = (status?: string) => {
+  if (status === 'Cocok') {
+    return {
+      badge: 'bg-[#F1FFF1] text-[#216617] border-[#8FFF6E]',
+      bar: 'bg-[#60C44A]',
+    };
+  }
+  if (status === 'Cukup') {
+    return {
+      badge: 'bg-[#FFFEEF] text-[#7A6800] border-[#FFEA50]',
+      bar: 'bg-[#FCDD05]',
+    };
+  }
+  return {
+    badge: 'bg-[#FFF1EF] text-[#770800] border-[#FF786F]',
+    bar: 'bg-[#FF4332]',
+  };
+};
+
+const statusLabel = (status?: string) => status === 'Kurang Cocok' ? 'Tidak cocok' : status ?? 'Belum tersedia';
+
+const hargaStyle = (tren?: string) => {
+  if (tren === 'Naik') return { box: 'bg-green-50 text-green-900 border-green-200', arah: 'naik' as const, label: tren };
+  if (tren === 'Turun') return { box: 'bg-red-50 text-red-900 border-red-200', arah: 'turun' as const, label: tren };
+  return { box: 'bg-slate-100 text-slate-800 border-slate-200', arah: 'stabil' as const, label: tren || 'Stabil' };
+};
+
+const potongPanen = (val?: string) => (val ? val.replace(/\s*\(.*?\)/g, '') : '-');
 ---
 
-<MainLayout title="Kalender Tanam" description="Rencana tanam, proyeksi hasil, harga, dan risiko tanaman di wilayah Anda.">
-  <div class="space-y-8">
-    <header data-page-hero class="relative isolate min-h-60 overflow-hidden rounded-panel bg-[#64902E] px-5 py-8 text-white shadow-lg sm:px-9 sm:py-10">
-      <img src="/images/kalender-tanam.jpg" alt="Petani menanam padi di sawah" class="absolute inset-0 z-0 h-full w-full object-cover object-center opacity-35" width="1200" height="800" />
-      <div data-page-hero-overlay class="absolute inset-0 z-10 bg-gradient-to-r from-[#64902E] via-[#64902E]/90 to-[#64902E]/35" aria-hidden="true"></div>
-      <div class="relative z-20">
-        <p data-page-hero-badge class="mb-3 inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#EAF2CF] px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-[#263238]">
-          <span class="h-2 w-2 shrink-0 rounded-full bg-[#64902E]" aria-hidden="true"></span>
-          <span>Perencanaan musim tanam · {wilayah.ok ? wilayah.data.name : 'SiPanen'}</span>
-        </p>
-        <h1 class="font-display text-3xl font-bold sm:text-4xl">Tanam di waktu yang tepat</h1>
-        <p class="mt-3 max-w-2xl text-sipanen-50">Bandingkan peluang tanam 12 bulan, perkiraan laba, harga panen, dan risiko cuaca untuk komoditas pilihan.</p>
-        <p class="mt-4 inline-flex rounded-full border border-white/70 bg-[#263238]/10 px-2.5 py-1 text-[11px] font-medium leading-tight text-white backdrop-blur-md">Data rekomendasi AI berstatus simulasi · gunakan sebagai bahan pertimbangan</p>
+<MainLayout title="Kalender Tanam" description="Kalender tanam 12 bulan berbasis model XGBoost, musim Open-Meteo, dan prediksi tren harga panen.">
+  <div class="space-y-6">
+    {/* Header Ringkas & Responsif */}
+    <header data-page-hero class="relative isolate overflow-hidden rounded-panel bg-[#125112] px-4 py-6 text-white shadow-lg sm:px-9 sm:py-10">
+      <img src="/cabai-hijau-harga.jpg" alt="Lahan budidaya cabai hijau" class="absolute inset-0 z-0 h-full w-full object-cover object-center opacity-90" width="1376" height="768" />
+      <div data-page-hero-overlay class="hero-photo-overlay absolute inset-0 z-10" aria-hidden="true"></div>
+      <div class="relative z-20 flex flex-wrap items-end justify-between gap-5">
+        <div class="relative max-w-3xl">
+          <p data-page-hero-badge class="mb-3 inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#EAF2CF] px-2.5 py-1.5 text-[10px] font-bold uppercase leading-tight tracking-[0.04em] text-[#263238] sm:gap-2 sm:px-3 sm:text-sm sm:tracking-wide">
+            <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#125112]" aria-hidden="true"></span>
+            <span>{wilayah.ok ? wilayah.data.name : metadata?.desa ?? 'Desa Blederan'}</span>
+          </p>
+          <h1 class="font-display text-2xl font-bold leading-tight tracking-tight text-white sm:text-3xl">Kalender tanam</h1>
+          <p class="mt-3 text-base text-green-50 sm:text-lg">
+            Pilih waktu tanam dengan melihat perkiraan panen, kondisi cuaca, dan arah harga.
+          </p>
+        </div>
       </div>
     </header>
 
-    {!wilayah.ok ? <DataState jenis="galat" pesan={wilayah.error.message} /> : komoditas.length === 0 ? <DataState jenis="kosong" pesan="Data komoditas belum tersedia. Muat ulang setelah backend siap." /> : (
+    {!fullKalender || kalender12.length === 0 ? (
+      <DataState
+        jenis="galat"
+        pesan={fullKalenderRes.ok ? 'Data kalender belum tersedia.' : fullKalenderRes.error.message}
+        saran="Pastikan backend aktif, lalu muat ulang halaman."
+      />
+    ) : (
       <>
-        <form method="GET" class="grid gap-4 rounded-2xl border border-kertas-garis bg-white p-4 shadow-sm sm:grid-cols-[1fr_180px_auto] sm:items-end sm:p-6">
-          <label class="grid gap-2 text-sm font-semibold">Pilih komoditas
-            <select name="komoditas" class="min-h-12 rounded-xl border border-kertas-garis bg-white px-3 text-base">
-              {komoditas.map((item) => <option value={item.name} selected={item.name === selected}>{item.name}</option>)}
-            </select>
-          </label>
-          <label class="grid gap-2 text-sm font-semibold">Luas lahan (ubin)
-            <input name="luas" type="number" min="1" max="100000" value={luas} class="min-h-12 rounded-xl border border-kertas-garis px-3 text-base" />
-          </label>
-          <button name="lihat" value="1" class="min-h-12 rounded-xl bg-sipanen-600 px-6 font-bold text-white transition hover:bg-sipanen-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sipanen-700">Lihat rekomendasi</button>
-        </form>
+        {/* Tombol Pilih Komoditas Instan Tanpa Reload */}
+        <nav aria-label="Pilih komoditas">
+          <p class="mb-2 text-sm font-semibold text-tinta-utama">Komoditas</p>
+          <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+            {daftarKomoditas.map((item) => {
+              const aktif = item.key === defaultKomoditasKey;
+              return (
+                <button
+                  type="button"
+                  data-komoditas-btn={item.key}
+                  data-komoditas-name={item.name}
+                  aria-pressed={aktif ? 'true' : 'false'}
+                  class:list={[
+                    'komoditas-tab-btn min-h-10 w-full cursor-pointer rounded-full border px-2 py-2 text-xs font-bold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sipanen-700 sm:w-auto sm:px-4 sm:text-sm',
+                    aktif
+                      ? 'border-[#B9D0AD] bg-[#DCE9D2] text-[#125112] hover:bg-[#C5D9BC]'
+                      : 'border-[#C7D2DF] bg-white text-[#344054] hover:bg-[#C5D9BC]',
+                  ]}
+                >
+                  {item.name}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
 
-        {load && !schedule ? <DataState jenis="galat" pesan={load[0].ok ? 'Jadwal tanam belum tersedia.' : load[0].error.message} saran="Pastikan layanan kalender tanam aktif, lalu coba lagi." /> : null}
-        {schedule && <>
-          <section class="space-y-5 rounded-2xl border border-kertas-garis bg-white p-4 shadow-sm sm:p-6" aria-labelledby="jadwal-title">
-            <div class="flex flex-wrap items-start justify-between gap-3">
-              <div><p class="text-sm font-semibold text-sipanen-600">REKOMENDASI 12 BULAN</p><h2 id="jadwal-title" class="mt-1 font-display text-2xl font-bold">Peluang tanam {schedule.komoditas}</h2></div>
-              <span class="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-900">Simulasi AI</span>
-            </div>
-            <div class="rounded-xl bg-sipanen-50 p-4"><p class="text-sm font-semibold text-sipanen-700">Bulan emas terbaik</p><p class="mt-1 text-xl font-bold">{schedule.bulan_emas_terbaik || 'Belum tersedia'}</p><p class="mt-1 text-sm text-tinta-kedua">Estimasi untuk {format(schedule.luas_ubin)} ubin · 1 ubin setara 14 m²</p></div>
-            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {schedule.rekomendasi_12_bulan.map((item) => <article class="rounded-xl border border-kertas-garis p-4 transition hover:border-sipanen-600 hover:shadow-md">
-                <div class="flex items-center justify-between gap-2"><h3 class="font-bold">{item.nama_bulan || months[item.bulan_tanam - 1]}</h3><span class="rounded-full bg-sipanen-100 px-2.5 py-1 text-xs font-bold text-sipanen-700">Skor {item.skor_kelayakan}/100</span></div>
-                <p class="mt-2 text-sm font-semibold text-sipanen-600">{item.kategori}</p><p class="mt-3 text-sm">Perkiraan panen: <strong>{item.perkiraan_bulan_panen}</strong></p>
-                <div class="mt-3 grid grid-cols-2 gap-2 text-sm"><p class="rounded-lg bg-kertas-lembut p-2">Risiko<strong class="block">{item.risiko_gagal_panen_persen}%</strong></p><p class="rounded-lg bg-kertas-lembut p-2">Estimasi laba<strong class="block">{rupiah(item.estimasi_laba_bersih_rp)}</strong></p></div>
-                <details class="mt-3 text-sm"><summary class="cursor-pointer font-semibold text-sipanen-700">Lihat alasan rekomendasi</summary><p class="mt-2">Cuaca: {item.alasan_cuaca || 'Tidak ada rincian.'}</p><p class="mt-1">Harga: {item.alasan_harga || 'Tidak ada rincian.'}</p></details>
-              </article>)}
-            </div>
-          </section>
+        {/* Panel per Komoditas (Berpindah Instan di Browser Tanpa Reload) */}
+        {daftarKomoditas.map((kom) => {
+          const aktif = kom.key === defaultKomoditasKey;
+          return (
+            <div
+              data-komoditas-panel={kom.key}
+              class={aktif ? 'space-y-6' : 'hidden space-y-6'}
+            >
+              {/* 3 Kotak Ringkasan */}
+              <section class="grid grid-cols-1 gap-3 sm:grid-cols-3" aria-label={`Ringkasan kalender tanam ${kom.name}`}>
+                <article class="h-full rounded-card border border-kertas-garis border-l-4 border-l-emerald-600 bg-white p-4 shadow-sm">
+                  <h3 class="text-sm font-semibold text-tinta-utama">Rekomendasi bulan terbaik</h3>
+                  <p class="mt-1 text-lg font-extrabold leading-snug text-tinta-utama">{kom.rekomendasiUtama}</p>
+                </article>
 
-          <section class="grid gap-5 lg:grid-cols-2">
-            <article class="rounded-2xl border border-kertas-garis bg-white p-5 shadow-sm sm:p-6"><p class="text-sm font-semibold text-sipanen-600">PROYEKSI PASAR</p><h2 class="mt-1 text-xl font-bold">Harga {prices?.komoditas ?? selected}</h2>
-              {prices ? <><dl class="mt-4 grid grid-cols-2 gap-3"><div class="rounded-xl bg-kertas-lembut p-3"><dt class="text-sm text-tinta-kedua">Harga saat ini</dt><dd class="mt-1 font-bold">{rupiah(prices.harga_pasar_wonosobo_sekarang_rp)}</dd></div><div class="rounded-xl bg-sipanen-50 p-3"><dt class="text-sm text-tinta-kedua">Proyeksi puncak panen</dt><dd class="mt-1 font-bold">{rupiah(prices.proyeksi_harga_puncak_panen_rp)}</dd></div><div class="rounded-xl bg-kertas-lembut p-3"><dt class="text-sm text-tinta-kedua">Rekor harga terendah</dt><dd class="mt-1 font-bold">{rupiah(prices.rekor_harga_terendah_rp)}</dd></div><div class="rounded-xl bg-kertas-lembut p-3"><dt class="text-sm text-tinta-kedua">Arah tren</dt><dd class="mt-1 font-bold">{prices.arah_tren}</dd></div></dl><p class="mt-3 text-sm text-tinta-kedua">Pasar rujukan: {prices.pasar_rujukan.join(', ') || 'Tidak tersedia'} · proyeksi simulasi.</p></> : <p class="mt-3 text-sm text-tinta-kedua">{load?.[1].ok === false ? load[1].error.message : 'Pilih “Lihat rekomendasi” untuk memuat proyeksi.'}</p>}</article>
-            <article class="rounded-2xl border border-kertas-garis bg-white p-5 shadow-sm sm:p-6"><p class="text-sm font-semibold text-sipanen-600">PEMANTAUAN TANAMAN</p><h2 class="mt-1 text-xl font-bold">Risiko gagal panen 6 hari</h2>
-              {risk ? <><p class="mt-3">Fase: <strong>{risk.fase_tanaman}</strong> · Risiko rata-rata <strong>{risk.rata_rata_risiko_persen}%</strong></p><p class="mt-1 text-sm">Hari paling kritis: <strong>{risk.hari_paling_kritis}</strong></p><ul class="mt-4 space-y-2">{risk.hasil_harian.map((day) => <li class="flex flex-wrap justify-between gap-2 rounded-lg bg-kertas-lembut p-3 text-sm"><span><strong>{day.tanggal}</strong> · {day.ancaman_utama} · {day.klasifikasi_bmkg}</span><span class="font-bold">{day.level_risiko} · {day.probabilitas_gagal_panen_persen}%</span><span class="w-full text-tinta-kedua">{day.tindakan_darurat}</span></li>)}</ul>{risk.rekomendasi_penyuluh_ppl.length > 0 && <p class="mt-3 text-sm">Saran penyuluh: {risk.rekomendasi_penyuluh_ppl.join(' · ')}</p>}<p class="mt-3 text-xs text-tinta-kedua">Hasil risiko berbasis prakiraan bawaan saat data harian belum dikirim. Simulasi, bukan diagnosis lapangan.</p></> : <p class="mt-3 text-sm text-tinta-kedua">{load?.[2].ok === false ? load[2].error.message : 'Pilih “Lihat rekomendasi” untuk memuat pemantauan.'}</p>}
-            </article>
-          </section>
-        </>}
+                <article class="h-full rounded-card border border-kertas-garis border-l-4 border-l-amber-500 bg-white p-4 shadow-sm">
+                  <h3 class="text-sm font-semibold text-tinta-utama">Lama budidaya</h3>
+                  <p class="mt-1 text-xl font-extrabold text-tinta-utama">{kom.hst} HST</p>
+                  <p class="mt-1 text-sm text-tinta-kedua">{kom.satuan}</p>
+                </article>
+
+                <article class="h-full rounded-card border border-kertas-garis border-l-4 border-l-blue-500 bg-white p-4 shadow-sm">
+                  <h3 class="text-sm font-semibold text-tinta-utama">Pola musim setempat</h3>
+                  <p class="mt-1 text-xs leading-relaxed text-tinta-kedua">Rata-rata curah hujan bulanan 2010-2025</p>
+                  <dl class="mt-2 space-y-1 text-sm text-tinta-utama">
+                    <div class="flex flex-wrap gap-x-1"><dt class="font-semibold">Musim hujan:</dt><dd>{rentangMusim('hujan')}</dd></div>
+                    <div class="flex flex-wrap gap-x-1"><dt class="font-semibold">Peralihan:</dt><dd>{rentangMusim('peralihan')}</dd></div>
+                    <div class="flex flex-wrap gap-x-1"><dt class="font-semibold">Musim kemarau:</dt><dd>{rentangMusim('kemarau')}</dd></div>
+                  </dl>
+                </article>
+              </section>
+
+              {/* Grid 12 Bulan */}
+              <section class="space-y-4 rounded-2xl border border-kertas-garis bg-white p-4 shadow-sm sm:p-5" aria-labelledby={'judul-jadwal-' + kom.key}>
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h2 id={'judul-jadwal-' + kom.key} class="font-display text-2xl font-bold leading-tight tracking-tight text-tinta-utama sm:text-3xl">Jadwal tanam {kom.name}</h2>
+                    <p class="mt-1 text-sm text-tinta-kedua">Pilih bulan untuk melihat status tanam, jadwal panen, cuaca, dan arah harga.</p>
+                  </div>
+                  <div class="flex flex-wrap gap-2 text-xs" aria-label="Arti warna status">
+                    <span class="rounded-full border border-[#8FFF6E] bg-[#F1FFF1] px-2.5 py-1 font-semibold text-[#216617] transition-colors hover:border-[#60C44A]">Cocok</span>
+                    <span class="rounded-full border border-[#FFEA50] bg-[#FFFEEF] px-2.5 py-1 font-semibold text-[#7A6800] transition-colors hover:border-[#FCDD05]">Cukup</span>
+                    <span class="rounded-full border border-[#FF786F] bg-[#FFF1EF] px-2.5 py-1 font-semibold text-[#770800] transition-colors hover:border-[#FF4332]">Tidak cocok</span>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6 xl:grid-cols-12" role="group" aria-label={'Pilih bulan tanam ' + kom.name}>
+                  {kalender12.map((row: any) => {
+                    const item = row?.komoditas?.[kom.key];
+                    if (!item) return null;
+                    const dipilih = Number(row.bulan) === 1;
+                    const warnaBulan = item.status === 'Cocok'
+                      ? 'border-[#8FFF6E] bg-[#F1FFF1] text-[#216617] hover:border-[#60C44A]'
+                      : item.status === 'Cukup'
+                        ? 'border-[#FFEA50] bg-[#FFFEEF] text-[#7A6800] hover:border-[#FCDD05]'
+                        : 'border-[#FF786F] bg-[#FFF1EF] text-[#770800] hover:border-[#FF4332]';
+                    return (
+                      <button
+                        type="button"
+                        class:list={['bulan-pilihan min-h-sentuh rounded-xl border px-3 py-2 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sipanen-700 xl:px-2', warnaBulan]}
+                        data-bulan-pilih={row.bulan}
+                        data-status={item.status}
+                        aria-pressed={dipilih ? 'true' : 'false'}
+                      >
+                        <span class="block text-sm font-bold xl:text-xs">{row.nama_bulan}</span>
+                        <span class="mt-0.5 block text-xs font-medium xl:text-[11px]">{statusLabel(item.status)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div class="space-y-3">
+                  {kalender12.map((row: any) => {
+                    const item = row?.komoditas?.[kom.key];
+                    if (!item) return null;
+                    const dipilih = Number(row.bulan) === 1;
+                    const st = statusStyle(item.status);
+                    const hg = hargaStyle(item.tren_harga_panen);
+                    const musim = row.musim?.label ?? 'Belum tersedia';
+                    const hujanVal = row.iklim?.hujan_mm != null ? Math.round(row.iklim.hujan_mm) + ' mm' : 'Belum tersedia';
+                    const detailId = 'jadwal-' + kom.key + '-' + row.bulan;
+
+                    return (
+                      <section
+                        id={detailId}
+                        data-bulan-detail={row.bulan}
+                        class:list={['rounded-2xl border border-kertas-garis bg-white p-4 shadow-sm sm:p-5', !dipilih && 'hidden']}
+                        aria-labelledby={detailId + '-judul'}
+                      >
+                        <header class="flex flex-wrap items-center justify-between gap-3 border-b border-kertas-garis pb-3">
+                          <div>
+                            <p class="text-xs font-semibold uppercase tracking-wide text-tinta-kedua">Jadwal tanam {kom.name}</p>
+                            <h3 id={detailId + '-judul'} class="mt-1 font-display text-xl font-bold text-tinta-utama">{row.nama_bulan}</h3>
+                          </div>
+                          <div class="flex items-center gap-2">
+                            <span class:list={['rounded-full border px-3 py-1 text-sm font-bold', st.badge]}>{statusLabel(item.status)}</span>
+                            <span class="rounded-full bg-slate-100 px-3 py-1 text-sm font-bold text-slate-800">Skor {item.skor}/100</span>
+                          </div>
+                        </header>
+
+                        <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                          <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                            <p class="text-sm font-semibold text-slate-900">Musim dan curah hujan historis</p>
+                            <p class="mt-1 text-base font-extrabold text-slate-900">{musim} · {hujanVal}</p>
+                            <p class="mt-1 text-sm leading-relaxed text-slate-700">Rata-rata klimatologi bulanan 2010 hingga 2025, bukan prakiraan cuaca harian.</p>
+                          </div>
+                          <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                            <p class="text-sm font-semibold text-slate-900">Perkiraan jadwal panen</p>
+                            <p class="mt-1 text-base font-extrabold text-slate-900">{potongPanen(item.panen_perkiraan)}</p>
+                            <p class="mt-1 text-sm text-slate-700">Sekitar {item.hst ?? kom.hst} HST setelah tanam bibit.</p>
+                          </div>
+                          <div class:list={['rounded-xl border p-3', hg.box]}>
+                            <p class="text-sm font-semibold">Arah harga saat panen</p>
+                            <p class="mt-1 flex items-center gap-2 text-base font-extrabold"><IkonArahHarga arah={hg.arah} ukuran={12} /> {hg.label}</p>
+                            <p class="mt-1 text-sm leading-relaxed">Perkiraan tren musiman; bukan jaminan harga pasar.</p>
+                          </div>
+                          <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                            <p class="text-sm font-semibold text-slate-900">Saran tanam</p>
+                            <p class="mt-1 text-sm leading-relaxed text-slate-800">{item.strategi_mitra ?? item.alasan ?? 'Belum ada saran untuk bulan ini.'}</p>
+                          </div>
+                        </div>
+
+                        {(item.fase?.berbunga_berbuah || item.fase?.panen) && (
+                          <div class="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm leading-relaxed text-slate-700">
+                            <p class="font-semibold text-slate-900">Cuaca pada fase penting</p>
+                            {item.fase?.berbunga_berbuah && <p class="mt-1">Berbunga ({item.fase.berbunga_berbuah.nama_bulan_dominan}): sekitar {Math.round(item.fase.berbunga_berbuah.hujan_mm ?? 0)} mm.</p>}
+                            {item.fase?.panen && <p class="mt-1">Panen ({item.fase.panen.nama_bulan_dominan}): sekitar {Math.round(item.fase.panen.hujan_mm ?? 0)} mm.</p>}
+                          </div>
+                        )}
+
+                        {item.alasan && (
+                          <p class="mt-3 flex items-start gap-2 rounded-xl bg-[#D2D2D2] p-3 text-sm leading-relaxed text-slate-700">
+                            <Ikon nama="saran" ukuran={18} kelas="mt-0.5 shrink-0 text-[#216617]" />
+                            <span><strong class="text-slate-900">Alasan penilaian:</strong> {item.alasan}</span>
+                          </p>
+                        )}
+                      </section>
+                    );
+                  })}
+                </div>
+              </section>
+            </div>
+          );
+        })}
+
       </>
     )}
   </div>
+
+  <script is:inline>
+    (function () {
+      const buttons = document.querySelectorAll('[data-komoditas-btn]');
+      const panels = document.querySelectorAll('[data-komoditas-panel]');
+      if (!buttons.length || !panels.length) return;
+
+      const activeBtnClasses = ['border-[#B9D0AD]', 'bg-[#DCE9D2]', 'text-[#125112]', 'hover:bg-[#C5D9BC]'];
+      const inactiveBtnClasses = ['border-[#C7D2DF]', 'bg-white', 'text-[#344054]', 'hover:bg-[#C5D9BC]'];
+
+      buttons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const targetKey = btn.getAttribute('data-komoditas-btn');
+          const targetName = btn.getAttribute('data-komoditas-name');
+          if (!targetKey) return;
+
+          buttons.forEach((b) => {
+            const isMatch = b.getAttribute('data-komoditas-btn') === targetKey;
+            b.setAttribute('aria-pressed', isMatch ? 'true' : 'false');
+            const sub = b.querySelector('[data-komoditas-sub]');
+            if (isMatch) {
+              b.classList.remove(...inactiveBtnClasses);
+              b.classList.add(...activeBtnClasses);
+              if (sub) {
+                sub.classList.remove('text-tinta-kedua');
+                sub.classList.add('text-sipanen-100');
+              }
+            } else {
+              b.classList.remove(...activeBtnClasses);
+              b.classList.add(...inactiveBtnClasses);
+              if (sub) {
+                sub.classList.remove('text-sipanen-100');
+                sub.classList.add('text-tinta-kedua');
+              }
+            }
+          });
+
+          panels.forEach((panel) => {
+            if (panel.getAttribute('data-komoditas-panel') === targetKey) {
+              panel.classList.remove('hidden');
+            } else {
+              panel.classList.add('hidden');
+            }
+          });
+
+          if (targetName && window.history && window.history.replaceState) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('komoditas', targetName);
+            window.history.replaceState({}, '', url.toString());
+          }
+        });
+      });
+
+      document.querySelectorAll('[data-bulan-pilih]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const panel = button.closest('[data-komoditas-panel]');
+          const bulan = button.getAttribute('data-bulan-pilih');
+          if (!panel || !bulan) return;
+
+          panel.querySelectorAll('[data-bulan-pilih]').forEach((pilihan) => {
+            pilihan.setAttribute('aria-pressed', pilihan === button ? 'true' : 'false');
+          });
+          panel.querySelectorAll('[data-bulan-detail]').forEach((detail) => {
+            detail.classList.toggle('hidden', detail.getAttribute('data-bulan-detail') !== bulan);
+          });
+        });
+      });
+    })();
+  </script>
+
+  <style>
+    .bulan-pilihan {
+      transition: transform 220ms ease, box-shadow 220ms ease, outline-color 220ms ease;
+    }
+
+    @media (hover: hover) {
+      .bulan-pilihan:hover {
+        position: relative;
+        z-index: 1;
+        box-shadow: 0 5px 12px rgb(38 50 56 / 16%);
+        transform: translateY(-3px);
+      }
+    }
+
+    .bulan-pilihan[aria-pressed='true'] {
+      position: relative;
+      z-index: 1;
+      outline: 1px solid currentColor;
+      outline-offset: 0;
+      box-shadow: 0 5px 12px rgb(38 50 56 / 18%);
+      transform: none;
+    }
+
+    .bulan-pilihan[aria-pressed='true'][data-status='Cocok'] {
+      outline-color: #8FFF6E;
+    }
+
+    .bulan-pilihan[aria-pressed='true'][data-status='Cukup'] {
+      outline-color: #FFEA50;
+    }
+
+    .bulan-pilihan[aria-pressed='true'][data-status='Kurang Cocok'] {
+      outline-color: #FF786F;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .bulan-pilihan {
+        transition: none;
+      }
+
+      .bulan-pilihan[aria-pressed='true'] {
+        transform: none;
+      }
+
+      .bulan-pilihan:hover {
+        transform: none;
+      }
+    }
+  </style>
 </MainLayout>
